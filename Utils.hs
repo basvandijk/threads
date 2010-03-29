@@ -9,8 +9,7 @@ module Utils where
 -- from base:
 import Control.Concurrent.MVar ( MVar, takeMVar, putMVar, tryTakeMVar )
 import Control.Exception       ( SomeException(SomeException)
-                               , blocked, block, unblock
-                               , throwIO
+                               , block, throwIO
                                )
 import Control.Monad           ( Monad, return, (>>=), (>>), fail )
 import Data.Bool               ( Bool(False, True), otherwise )
@@ -67,18 +66,6 @@ deleteFirstWhich' p = deleteFirstWhich'_p
       deleteFirstWhich'_p (x:xs)
                       | p x       = xs
                       | otherwise = (x:) $! deleteFirstWhich'_p xs
-
-{-|
-@blockedApply a f@ applies @f@ in a blocked state to @a@ which is executed in
-the blocked state of the current thread.
-
-Handy in case @f@ is a fork which needs to install an exception handler before
-executing @a@.
--}
-blockedApply ∷ IO α → (IO α → IO β) → IO β
-blockedApply a f = ifM blocked
-                       (f a)
-                       (block $ f $ unblock a)
 
 
 -- The End ---------------------------------------------------------------------

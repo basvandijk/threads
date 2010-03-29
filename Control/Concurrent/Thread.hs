@@ -55,7 +55,7 @@ import qualified Control.Concurrent as C ( ThreadId, forkIO, forkOS, throwTo )
 import Control.Concurrent.MVar ( newEmptyMVar, putMVar, readMVar )
 import Control.Exception  ( Exception, SomeException
                           , AsyncException(ThreadKilled)
-                          , try
+                          , blocked, block, try
                           )
 #ifdef __HADDOCK__
 import Control.Exception  ( BlockedIndefinitelyOnMVar
@@ -76,7 +76,7 @@ import System.IO          ( IO )
 import Data.Function.Unicode ( (∘) )
 
 -- from concurrent-extra:
-import Utils ( void, throwInner, blockedApply, tryRead )
+import Utils ( void, throwInner, tryRead )
 
 import Control.Concurrent.Thread.Internal ( ThreadId(ThreadId)
                                           , result, threadId
@@ -131,7 +131,9 @@ by the function which does the actual forking.
 fork ∷ (IO () → IO C.ThreadId) → IO α → IO (ThreadId α)
 fork doFork a = do
   res ← newEmptyMVar
-  fmap (ThreadId res) $ blockedApply a $ \a' → doFork $ try a' >>= putMVar res
+  b ← blocked
+  fmap (ThreadId res) $ block $ doFork $ try (if b then a else block a) >>=
+                                         putMVar res
 
 
 -------------------------------------------------------------------------------

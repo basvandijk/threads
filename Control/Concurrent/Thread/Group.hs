@@ -55,7 +55,8 @@ import Control.Concurrent.MVar ( MVar, newMVar, newEmptyMVar
                                , takeMVar, putMVar
                                , readMVar
                                )
-import Control.Exception       ( try, block, catch, SomeException )
+import Control.Exception       ( blocked, block, unblock
+                               , try, catch, SomeException )
 import Control.Monad           ( (>>=), (>>), return, fail, mapM_)
 import Data.Bool               ( Bool(..) )
 import Data.Function           ( ($) )
@@ -77,7 +78,6 @@ import Utils ( (∘!)
              , void
              , anyM
              , deleteFirstWhich'
-             , blockedApply
              , purelyModifyMVar
              )
 
@@ -138,11 +138,12 @@ forkOS = fork C.forkOS
 fork ∷ (IO () → IO C.ThreadId) → ThreadGroup α → IO α → IO (ThreadId α)
 fork doFork (ThreadGroup mv) a = do
   res ← newEmptyMVar
-  blockedApply a $ \a' → do
+  b ← blocked
+  block $ do
     tids ← takeMVar mv
 
     nativeTid ← doFork $ do
-      r ← try a'
+      r ← try $ if b then a else unblock a
       let final = putMVar res r
       deleteMyTid `catch` \(_ ∷ SomeException) → final
       final
