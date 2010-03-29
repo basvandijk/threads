@@ -156,7 +156,8 @@ fork doFork (ThreadGroup mv) a = do
       nativeTid ← myThreadId
       takeMVar mv >>= putMVar mv ∘! deleteFirstWhich' ((nativeTid ≡) ∘ threadId)
 
--- | Block until all threads in the group have terminated.
+-- | Block until all threads, that were added to the group before calling
+-- @wait@, have terminated.
 wait ∷ ThreadGroup α → IO ()
 wait (ThreadGroup mv) = readMVar mv >>= mapM_ wait_
 
