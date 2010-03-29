@@ -58,7 +58,11 @@ import Control.Exception  ( Exception, SomeException
                           , try
                           )
 #ifdef __HADDOCK__
-import Control.Exception  ( BlockedIndefinitelyOnMVar, BlockedIndefinitelyOnSTM )
+import Control.Exception  ( BlockedIndefinitelyOnMVar
+                          , BlockedIndefinitelyOnSTM
+                          , AsyncException(ThreadKilled)
+                          )
+import qualified Control.Concurrent as C ( killThread )
 #endif
 import Control.Monad      ( return, (>>=), (>>), fail )
 import Data.Bool          ( Bool(..) )
@@ -232,8 +236,10 @@ thread. The memory used by the thread will be garbage collected if it isn't
 referenced from anywhere. The 'killThread' function is defined in terms of
 'throwTo'.
 
-This function blocks until the target thread is terminated. It is a no-op if the
-target thread has already completed.
+Note that this function is different than @Control.Concurrent.'C.killThread'@ in
+that it blocks until the target thread is terminated:
+
+@killThread tid = 'throwTo' tid 'ThreadKilled' '>>' 'wait_' tid@
 -}
 killThread ∷ ThreadId α → IO ()
 killThread tid = throwTo tid ThreadKilled >> wait_ tid
