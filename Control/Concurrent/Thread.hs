@@ -10,9 +10,7 @@
 --
 -- Standard threads extended with the ability to wait for their termination.
 --
--- Inspired by: <http://hackage.haskell.org/package/threadmanager>
---
--- This module provides equivalently named functions from
+-- This module exports equivalently named functions from
 -- @Control.Concurrent@. Avoid ambiguities by importing one or both
 -- qualified. We suggest importing this module like:
 --
@@ -55,7 +53,7 @@ import qualified Control.Concurrent as C ( ThreadId, forkIO, forkOS, throwTo )
 import Control.Concurrent.MVar ( newEmptyMVar, putMVar, readMVar )
 import Control.Exception  ( Exception, SomeException
                           , AsyncException(ThreadKilled)
-                          , blocked, block, try
+                          , blocked, block, unblock, try
                           )
 #ifdef __HADDOCK__
 import Control.Exception  ( BlockedIndefinitelyOnMVar
@@ -132,7 +130,7 @@ fork ∷ (IO () → IO C.ThreadId) → IO α → IO (ThreadId α)
 fork doFork a = do
   res ← newEmptyMVar
   b ← blocked
-  fmap (ThreadId res) $ block $ doFork $ try (if b then a else block a) >>=
+  fmap (ThreadId res) $ block $ doFork $ try (if b then a else unblock a) >>=
                                          putMVar res
 
 

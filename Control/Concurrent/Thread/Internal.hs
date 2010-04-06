@@ -35,7 +35,7 @@ that is executing or has executed a computation of type @'IO' &#x3B1;@.
 -}
 data ThreadId α = ThreadId
     { result   ∷ MVar (Either SomeException α)
-    , threadId ∷ C.ThreadId -- ^ Extract the underlying
+    , threadId ∷ C.ThreadId -- ^ Extract the native
                             -- @Control.Concurrent.'C.ThreadId'@.
     } deriving Typeable
 
