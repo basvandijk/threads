@@ -13,8 +13,8 @@ import Control.Exception       ( SomeException(SomeException)
                                )
 import Control.Monad           ( Monad, return, (>>=), (>>), fail )
 import Data.Bool               ( Bool )
-import Data.Function           ( ($) )
-import Data.Functor            ( Functor, (<$) )
+import Data.Function           ( ($), flip )
+import Data.Functor            ( Functor, (<$>), (<$) )
 import Data.Maybe              ( Maybe(Nothing, Just) )
 import System.IO               ( IO )
 
@@ -22,6 +22,9 @@ import System.IO               ( IO )
 --------------------------------------------------------------------------------
 -- Utility functions
 --------------------------------------------------------------------------------
+
+(<$$>) ∷ Functor f ⇒ f α → (α → β) → f β
+(<$$>) = flip (<$>)
 
 void ∷ Functor f ⇒ f α → f ()
 void = (() <$)

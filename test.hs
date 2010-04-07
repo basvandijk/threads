@@ -1,4 +1,4 @@
-{-# LANGUAGE NoImplicitPrelude, UnicodeSyntax #-}
+{-# LANGUAGE NoImplicitPrelude, UnicodeSyntax, DeriveDataTypeable #-}
 
 module Main where
 
@@ -8,19 +8,28 @@ module Main where
 
 -- from base:
 import Control.Concurrent ( threadDelay )
-import Control.Exception  ( unblock, block, blocked )
+import Control.Exception  ( Exception, fromException
+                          , AsyncException(ThreadKilled)
+                          , throwIO
+                          , unblock, block, blocked
+                          )
 import Control.Monad      ( return, (>>=), fail, (>>) )
 import Data.Bool          ( Bool(False, True), not )
-import Data.Function      ( ($), id )
+import Data.Eq            ( Eq )
+import Data.Either        ( either )
+import Data.Function      ( ($), id, const )
 import Data.Functor       ( fmap  )
 import Data.IORef         ( newIORef, readIORef, writeIORef )
 import Data.Maybe         ( maybe )
+import Data.Typeable      ( Typeable )
 import Prelude            ( fromInteger )
 import System.Timeout     ( timeout )
 import System.IO          ( IO )
+import Text.Show          ( Show )
 
 -- from base-unicode-symbols:
 import Prelude.Unicode       ( (⋅) )
+import Data.Eq.Unicode       ( (≡) )
 import Data.Function.Unicode ( (∘) )
 
 -- from concurrent-extra:
@@ -40,6 +49,7 @@ import qualified Control.Concurrent.Thread as Thread
 import qualified Control.Concurrent.Thread.Group as ThreadGroup
 
 import TestUtils ( a_moment )
+import Utils     ( (<$$>) )
 
 
 -------------------------------------------------------------------------------
@@ -51,24 +61,29 @@ main = defaultMain tests
 
 tests ∷ [Test]
 tests = [ testGroup "Thread" $
-          [ testCase "wait"           $ test_wait           Thread.forkIO
-          , testCase "isRunning"      $ test_isRunning      Thread.forkIO
-          , testCase "blockedState"   $ test_blockedState   Thread.forkIO
-          , testCase "unblockedState" $ test_unblockedState Thread.forkIO
+          [ testCase "wait"            $ test_wait            Thread.forkIO
+          , testCase "isRunning"       $ test_isRunning       Thread.forkIO
+          , testCase "blockedState"    $ test_blockedState    Thread.forkIO
+          , testCase "unblockedState"  $ test_unblockedState  Thread.forkIO
+          , testCase "sync exception"  $ test_sync_exception  Thread.forkIO
+          , testCase "async exception" $ test_async_exception Thread.forkIO
           ]
         , testGroup "ThreadGroup" $
-          [ testCase "wait"           $ wrap test_wait
-          , testCase "isRunning"      $ wrap test_isRunning
-          , testCase "blockedState"   $ wrap test_blockedState
-          , testCase "unblockedState" $ wrap test_unblockedState
+          [ testCase "wait"            $ wrap test_wait
+          , testCase "isRunning"       $ wrap test_isRunning
+          , testCase "blockedState"    $ wrap test_blockedState
+          , testCase "unblockedState"  $ wrap test_unblockedState
+          , testCase "sync exception"  $ wrap test_sync_exception
+          , testCase "async exception" $ wrap test_async_exception
 
           , testCase "group single wait"      test_group_single_wait
           , testCase "group single isRunning" test_group_single_isRunning
           ]
         ]
 
+
 -------------------------------------------------------------------------------
--- Thread
+-- General properties
 -------------------------------------------------------------------------------
 
 type Fork α = IO α → IO (Thread.ThreadId α)
@@ -102,13 +117,39 @@ test_unblockedState ∷ Fork Bool → Assertion
 test_unblockedState fork = (unblock $ fork $ fmap not $ blocked) >>=
                            Thread.unsafeWait >>= assert
 
+test_sync_exception ∷ Fork () → Assertion
+test_sync_exception fork = assert $
+  fork (throwIO MyException) >>= waitForException MyException
+
+waitForException ∷ (Exception e, Eq e) ⇒ e → Thread.ThreadId α → IO Bool
+waitForException e tid = Thread.wait tid <$$>
+                           either (maybe False (≡ e) ∘ fromException)
+                                  (const False)
+
+test_async_exception ∷ Fork () → Assertion
+test_async_exception fork = assert $ do
+  l ← Lock.newAcquired
+  tid ← fork $ Lock.acquire l
+  Thread.throwTo tid MyException
+  waitForException MyException tid
+
+data MyException = MyException deriving (Show, Eq, Typeable)
+instance Exception MyException
+
+test_killThread ∷ Fork () → Assertion
+test_killThread fork = assert $ do
+  l ← Lock.newAcquired
+  tid ← fork $ Lock.acquire l
+  Thread.killThread tid
+  waitForException ThreadKilled tid
+
 
 -------------------------------------------------------------------------------
 -- ThreadGroup
 -------------------------------------------------------------------------------
 
 wrap ∷ (Fork α → IO β) → IO β
-wrap t = ThreadGroup.new >>= t ∘ ThreadGroup.forkIO
+wrap test = ThreadGroup.new >>= test ∘ ThreadGroup.forkIO
 
 test_group_single_wait ∷ Assertion
 test_group_single_wait = assert
