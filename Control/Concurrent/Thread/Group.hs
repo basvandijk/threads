@@ -111,11 +111,11 @@ fork doFork (ThreadGroup mc l) a = do
   where
     increment = do numThreads ← takeMVar mc
                    whenThen (numThreads ≡ 0) (Lock.acquire l)
-                            (putMVar mc $! numThreads + 1)
+                     (putMVar mc $! numThreads + 1)
 
     decrement = do numThreads ← takeMVar mc
                    whenThen (numThreads ≡ 1) (Lock.release l)
-                            (putMVar mc $! numThreads - 1)
+                     (putMVar mc $! numThreads - 1)
 
 lock ∷ ThreadGroup → Lock
 lock (ThreadGroup _ l) = l
