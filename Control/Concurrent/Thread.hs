@@ -56,10 +56,6 @@ import Control.Exception  ( Exception, SomeException
                           , blocked, block, unblock, try
                           )
 #ifdef __HADDOCK__
-import Control.Exception  ( BlockedIndefinitelyOnMVar
-                          , BlockedIndefinitelyOnSTM
-                          , AsyncException(ThreadKilled)
-                          )
 import qualified Control.Concurrent as C ( killThread )
 #endif
 import Control.Monad      ( return, (>>=), (>>), fail )
@@ -94,11 +90,6 @@ library that uses thread-local storage, use 'forkOS' instead.
 
 GHC note: the new thread inherits the blocked state of the parent (see
 'Control.Exception.block').
-
-The newly created thread has an exception handler that discards the exceptions
-'BlockedIndefinitelyOnMVar', 'BlockedIndefinitelyOnSTM', and 'ThreadKilled'. All
-other exceptions are recorded in the 'ThreadId' and can be retrieved using
-'wait'.
 -}
 forkIO ∷ IO α → IO (ThreadId α)
 forkIO = fork C.forkIO
