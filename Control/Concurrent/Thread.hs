@@ -50,31 +50,38 @@ module Control.Concurrent.Thread
 
 -- from base:
 import qualified Control.Concurrent as C ( ThreadId, forkIO, forkOS, throwTo )
-import Control.Concurrent.MVar ( newEmptyMVar, putMVar, readMVar )
 import Control.Exception  ( Exception, SomeException
                           , AsyncException(ThreadKilled)
                           , blocked, block, unblock, try
                           )
-#ifdef __HADDOCK__
-import qualified Control.Concurrent as C ( killThread )
-#endif
 import Control.Monad      ( return, (>>=), (>>), fail )
-import Data.Bool          ( Bool(..) )
-import Data.Either        ( Either(..), either )
+import Data.Bool          ( Bool )
+import Data.Either        ( Either, either )
 import Data.Function      ( ($), const )
 import Data.Functor       ( fmap )
-import Data.Maybe         ( Maybe(..), isNothing )
+import Data.Maybe         ( Maybe, isNothing )
 import System.IO          ( IO )
+
+#ifdef __HADDOCK__
+import qualified Control.Concurrent as C ( killThread )
+import Data.Bool   ( Bool  (False,   True)  )
+import Data.Either ( Either(Left,    Right) )
+import Data.Maybe  ( Maybe (Nothing, Just)  )
+#endif
 
 -- from base-unicode-symbols:
 import Data.Function.Unicode ( (∘) )
 
--- from concurrent-extra:
-import Utils ( void, throwInner, tryRead )
+-- from stm:
+import Control.Concurrent.STM.TMVar ( newEmptyTMVarIO, putTMVar, readTMVar )
+import Control.Concurrent.STM       ( atomically )
 
+-- from threads:
 import Control.Concurrent.Thread.Internal ( ThreadId(ThreadId)
                                           , result, threadId
                                           )
+
+import Utils ( void, throwInner, tryReadTMVar )
 
 
 -------------------------------------------------------------------------------
@@ -119,10 +126,10 @@ by the function which does the actual forking.
 -}
 fork ∷ (IO () → IO C.ThreadId) → IO α → IO (ThreadId α)
 fork doFork a = do
-  res ← newEmptyMVar
+  res ← newEmptyTMVarIO
   b ← blocked
   fmap (ThreadId res) $ block $ doFork $ try (if b then a else unblock a) >>=
-                                         putMVar res
+                                         atomically ∘ putTMVar res
 
 
 -------------------------------------------------------------------------------
@@ -138,7 +145,7 @@ Block until the given thread is terminated.
 caught.
 -}
 wait ∷ ThreadId α → IO (Either SomeException α)
-wait = readMVar ∘ result
+wait = atomically ∘ readTMVar ∘ result
 
 -- | Like 'wait' but will ignore the value returned by the thread.
 wait_ ∷ ThreadId α → IO ()
@@ -173,7 +180,7 @@ Notice that this observation is only a snapshot of a thread's state. By the time
 a program reacts on its result it may already be out of date.
 -}
 status ∷ ThreadId α → IO (Maybe (Either SomeException α))
-status = tryRead ∘ result
+status = tryReadTMVar ∘ result
 
 {-|
 Returns 'True' if the thread is currently running and 'False' otherwise.

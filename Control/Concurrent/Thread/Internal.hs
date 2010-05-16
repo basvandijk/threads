@@ -11,7 +11,6 @@ module Control.Concurrent.Thread.Internal
 -------------------------------------------------------------------------------
 
 -- from base:
-import Control.Concurrent.MVar           ( MVar )
 import Control.Exception                 ( SomeException )
 import Data.Eq                           ( Eq, (==) )
 import Data.Either                       ( Either )
@@ -24,6 +23,9 @@ import qualified Control.Concurrent as C ( ThreadId )
 -- from base-unicode-symbols:
 import Data.Function.Unicode ( (∘) )
 
+-- from stm:
+import Control.Concurrent.STM.TMVar ( TMVar )
+
 
 -------------------------------------------------------------------------------
 -- ThreadIds
@@ -34,7 +36,7 @@ A @'ThreadId' &#x3B1;@ is an abstract type representing a handle to a thread
 that is executing or has executed a computation of type @'IO' &#x3B1;@.
 -}
 data ThreadId α = ThreadId
-    { result   ∷ MVar (Either SomeException α)
+    { result   ∷ TMVar (Either SomeException α)
     , threadId ∷ C.ThreadId -- ^ Extract the native
                             -- @Control.Concurrent.'C.ThreadId'@.
     } deriving Typeable
