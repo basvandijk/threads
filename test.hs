@@ -18,7 +18,7 @@ import Data.Bool          ( Bool(False, True), not )
 import Data.Eq            ( Eq )
 import Data.Either        ( either )
 import Data.Function      ( ($), id, const )
-import Data.Functor       ( fmap  )
+import Data.Functor       ( fmap, (<$>) )
 import Data.IORef         ( newIORef, readIORef, writeIORef )
 import Data.Maybe         ( maybe )
 import Data.Typeable      ( Typeable )
@@ -114,7 +114,7 @@ test_blockedState fork = (block $ fork $ blocked) >>=
                          Thread.unsafeWait >>= assert
 
 test_unblockedState ∷ Fork Bool → Assertion
-test_unblockedState fork = (unblock $ fork $ fmap not $ blocked) >>=
+test_unblockedState fork = (unblock $ fork $ not <$> blocked) >>=
                            Thread.unsafeWait >>= assert
 
 test_sync_exception ∷ Fork () → Assertion
