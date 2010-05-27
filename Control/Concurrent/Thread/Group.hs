@@ -34,6 +34,9 @@ module Control.Concurrent.Thread.Group
       -- * Forking threads
     , forkIO
     , forkOS
+#ifdef __GLASGOW_HASKELL__
+    , forkOnIO
+#endif
 
       -- * Waiting & Status
     , wait
@@ -51,10 +54,15 @@ import Control.Monad           ( (>>=), (>>), fail, when, liftM2 )
 import Data.Bool               ( Bool(..) )
 import Data.Function           ( ($) )
 import Data.Functor            ( fmap )
+import Data.Int                ( Int )
 import Data.Typeable           ( Typeable )
 import System.IO               ( IO )
 import qualified Control.Concurrent as C ( ThreadId, forkIO, forkOS )
 import Prelude                 ( Integer, fromInteger, (+), (-), ($!) )
+
+#ifdef __GLASGOW_HASKELL__
+import qualified GHC.Conc      ( forkOnIO )
+#endif
 
 -- from base-unicode-symbols:
 import Data.Eq.Unicode         ( (≡) )
@@ -76,7 +84,12 @@ import qualified Control.Concurrent.STM.Lock as Lock ( new
 import Control.Concurrent.Thread.Internal ( ThreadId( ThreadId ) )
 
 #ifdef __HADDOCK__
-import qualified Control.Concurrent.Thread as Thread ( forkIO, forkOS )
+import qualified Control.Concurrent.Thread as Thread ( forkIO
+                                                     , forkOS
+#ifdef __GLASGOW_HASKELL__
+                                                     , forkOnIO
+#endif
+                                                     )
 #endif
 
 
@@ -86,7 +99,7 @@ import qualified Control.Concurrent.Thread as Thread ( forkIO, forkOS )
 
 data ThreadGroup = ThreadGroup (TVar Integer) Lock deriving Typeable
 
--- | Create a new empty group.
+-- | Create a new empty group of threads.
 new ∷ IO ThreadGroup
 new = atomically $ liftM2 ThreadGroup (newTVar 0) (Lock.new)
 
@@ -99,6 +112,13 @@ forkIO = fork C.forkIO
 -- the thread to the group.
 forkOS ∷ ThreadGroup → IO α → IO (ThreadId α)
 forkOS = fork C.forkOS
+
+#ifdef __GLASGOW_HASKELL__
+-- | Same as @Control.Concurrent.Thread.'Thread.forkOnIO'@ but
+-- additionaly adds the thread to the group. (GHC only)
+forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId α)
+forkOnIO = fork ∘ GHC.Conc.forkOnIO
+#endif
 
 fork ∷ (IO () → IO C.ThreadId) → ThreadGroup → IO α → IO (ThreadId α)
 fork doFork (ThreadGroup mc l) a = do

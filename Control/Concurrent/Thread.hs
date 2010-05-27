@@ -10,9 +10,9 @@
 --
 -- Standard threads extended with the ability to wait for their termination.
 --
--- This module exports equivalently named functions from
--- @Control.Concurrent@. Avoid ambiguities by importing one or both
--- qualified. We suggest importing this module like:
+-- This module exports equivalently named functions from @Control.Concurrent@
+-- (and @GHC.Conc@). Avoid ambiguities by importing this module qualified. May
+-- we suggest:
 --
 -- @
 -- import qualified Control.Concurrent.Thread as Thread ( ... )
@@ -21,7 +21,8 @@
 -------------------------------------------------------------------------------
 
 module Control.Concurrent.Thread
-  ( ThreadId
+  ( -- * Identifying threads
+    ThreadId
   , threadId
 
     -- * Forking threads
@@ -41,6 +42,15 @@ module Control.Concurrent.Thread
     -- * Convenience functions
   , throwTo
   , killThread
+
+#ifdef __GLASGOW_HASKELL__
+    -- * GHC specific functionality
+  , forkOnIO
+  , labelThread
+  , GHC.Conc.ThreadStatus(..)
+  , GHC.Conc.BlockReason(..)
+  , threadStatus
+#endif
   ) where
 
 
@@ -54,19 +64,29 @@ import Control.Exception  ( Exception, SomeException
                           , AsyncException(ThreadKilled)
                           , blocked, block, unblock, try
                           )
-import Control.Monad      ( return, (>>=), (>>), fail )
-import Data.Bool          ( Bool )
-import Data.Either        ( Either, either )
+import Control.Monad      ( return, (>>=), fail )
+import Data.Bool          ( Bool(..) )
+import Data.Char          ( String )
+import Data.Either        ( Either(..), either )
 import Data.Function      ( ($), const )
 import Data.Functor       ( fmap )
-import Data.Maybe         ( Maybe, isNothing )
+import Data.Int           ( Int )
+import Data.Maybe         ( Maybe(..), isNothing )
 import System.IO          ( IO )
 
+#ifdef __GLASGOW_HASKELL__
+import qualified GHC.Conc ( forkOnIO
+                          , labelThread
+                          , ThreadStatus(..)
+                          , BlockReason(..)
+                          , threadStatus
+                          )
+#endif
 #ifdef __HADDOCK__
 import qualified Control.Concurrent as C ( killThread )
-import Data.Bool   ( Bool  (False,   True)  )
-import Data.Either ( Either(Left,    Right) )
-import Data.Maybe  ( Maybe (Nothing, Just)  )
+#ifdef __GLASGOW_HASKELL__
+import GHC.Conc ( numCapabilities )
+#endif
 #endif
 
 -- from base-unicode-symbols:
@@ -82,6 +102,13 @@ import Control.Concurrent.Thread.Internal ( ThreadId(ThreadId)
                                           )
 
 import Utils ( void, throwInner, tryReadTMVar )
+
+
+-------------------------------------------------------------------------------
+-- * Identifying threads
+-------------------------------------------------------------------------------
+
+-- See: Control.Concurrent.Thread.Internal
 
 
 -------------------------------------------------------------------------------
@@ -127,9 +154,10 @@ by the function which does the actual forking.
 fork ∷ (IO () → IO C.ThreadId) → IO α → IO (ThreadId α)
 fork doFork a = do
   res ← newEmptyTMVarIO
-  b ← blocked
-  fmap (ThreadId res) $ block $ doFork $ try (if b then a else unblock a) >>=
-                                         atomically ∘ putTMVar res
+  parentIsBlocked ← blocked
+  fmap (ThreadId res) $ block $ doFork $
+    try (if parentIsBlocked then a else unblock a) >>=
+      atomically ∘ putTMVar res
 
 
 -------------------------------------------------------------------------------
@@ -233,14 +261,53 @@ the thread isn't lost: the computation is suspended until required by another
 thread. The memory used by the thread will be garbage collected if it isn't
 referenced from anywhere. The 'killThread' function is defined in terms of
 'throwTo'.
-
-Note that this function is different than @Control.Concurrent.'C.killThread'@ in
-that it blocks until the target thread is terminated:
-
-@killThread tid = 'throwTo' tid 'ThreadKilled' '>>' 'wait_' tid@
 -}
 killThread ∷ ThreadId α → IO ()
-killThread tid = throwTo tid ThreadKilled >> wait_ tid
+killThread tid = throwTo tid ThreadKilled
+
+
+#ifdef __GLASGOW_HASKELL__
+-------------------------------------------------------------------------------
+-- * GHC specific functionality
+-------------------------------------------------------------------------------
+
+{-|
+Like 'forkIO', but lets you specify on which CPU the thread is
+created.  Unlike a 'forkIO' thread, a thread created by 'forkOnIO'
+will stay on the same CPU for its entire lifetime ('forkIO' threads
+can migrate between CPUs according to the scheduling policy).
+'forkOnIO' is useful for overriding the scheduling policy when you
+know in advance how best to distribute the threads.
+
+The 'Int' argument specifies the CPU number; it is interpreted modulo
+'numCapabilities' (note that it actually specifies a capability number
+rather than a CPU number, but to a first approximation the two are
+equivalent).
+-}
+forkOnIO ∷ Int → IO α → IO (ThreadId α)
+forkOnIO = fork ∘ GHC.Conc.forkOnIO
+
+{-|
+@labelThread@ stores a string as identifier for this thread if you built a RTS
+with debugging support. This identifier will be used in the debugging output to
+make distinction of different threads easier (otherwise you only have the thread
+state object\'s address in the heap).
+
+Other applications like the graphical Concurrent Haskell Debugger
+(<http://www.informatik.uni-kiel.de/~fhu/chd/>) may choose to overload
+'labelThread' for their purposes as well.
+-}
+labelThread ∷ ThreadId α → String → IO ()
+labelThread = GHC.Conc.labelThread ∘ threadId
+
+{-|
+GHC specific function for retrieving the thread status.
+
+Also see 'status' for retieving other status information.
+-}
+threadStatus ∷ ThreadId α → IO GHC.Conc.ThreadStatus
+threadStatus = GHC.Conc.threadStatus ∘ threadId
+#endif
 
 
 -- The End ---------------------------------------------------------------------

@@ -1,5 +1,5 @@
 name:          threads
-version:       0.1.0.1
+version:       0.2
 cabal-version: >= 1.6
 build-type:    Custom
 stability:     experimental
@@ -32,6 +32,8 @@ description:   This package provides functions to fork threads and
                * No space-leak when forking a large number of threads.
                .
                * Correct handling of asynchronous exceptions.
+               .
+               * GHC specific functionality like @forkOnIO@.
 
 source-repository head
   Type: darcs
@@ -73,7 +75,7 @@ executable test-threads
   main-is: test.hs
   other-modules: TestUtils
 
-  ghc-options: -Wall
+  ghc-options: -Wall -threaded
 
   if flag(test)
     build-depends: base                       >= 3     && < 4.3
