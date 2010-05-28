@@ -15,9 +15,9 @@
 -- This module extends @Control.Concurrent.Thread@ with the ability to wait for
 -- a group of threads to terminate.
 --
--- This module exports equivalently named functions from @Control.Concurrent@
--- and @Control.Concurrent.Thread@. Avoid ambiguities by importing one or both
--- qualified. We suggest importing this module like:
+-- This module exports equivalently named functions from @Control.Concurrent@,
+-- (@GHC.Conc@), and @Control.Concurrent.Thread@. Avoid ambiguities by importing
+-- this module qualified. May we suggest:
 --
 -- @
 -- import Control.Concurrent.Thread.Group ( ThreadGroup )
@@ -49,15 +49,15 @@ module Control.Concurrent.Thread.Group
 -------------------------------------------------------------------------------
 
 -- from base:
+import qualified Control.Concurrent as C ( forkIO, forkOS )
+import Control.Concurrent      ( ThreadId )
 import Control.Exception       ( blocked, block, unblock, try )
-import Control.Monad           ( (>>=), (>>), fail, when, liftM2 )
+import Control.Monad           ( return, (>>=), (>>), fail, when, liftM2 )
 import Data.Bool               ( Bool(..) )
 import Data.Function           ( ($) )
-import Data.Functor            ( fmap )
 import Data.Int                ( Int )
 import Data.Typeable           ( Typeable )
 import System.IO               ( IO )
-import qualified Control.Concurrent as C ( ThreadId, forkIO, forkOS )
 import Prelude                 ( Integer, fromInteger, (+), (-), ($!) )
 
 #ifdef __GLASGOW_HASKELL__
@@ -81,7 +81,7 @@ import qualified Control.Concurrent.STM.Lock as Lock ( new
                                                      )
 
 -- from threads:
-import Control.Concurrent.Thread.Internal ( ThreadId( ThreadId ) )
+import Control.Concurrent.Thread.Internal ( Result(Result) )
 
 #ifdef __HADDOCK__
 import qualified Control.Concurrent.Thread as Thread ( forkIO
@@ -105,30 +105,31 @@ new = atomically $ liftM2 ThreadGroup (newTVar 0) (Lock.new)
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkIO'@ but additionaly adds
 -- the thread to the group.
-forkIO ∷ ThreadGroup → IO α → IO (ThreadId α)
+forkIO ∷ ThreadGroup → IO α → IO (ThreadId, Result α)
 forkIO = fork C.forkIO
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOS'@ but additionaly adds
 -- the thread to the group.
-forkOS ∷ ThreadGroup → IO α → IO (ThreadId α)
+forkOS ∷ ThreadGroup → IO α → IO (ThreadId, Result α)
 forkOS = fork C.forkOS
 
 #ifdef __GLASGOW_HASKELL__
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOnIO'@ but
 -- additionaly adds the thread to the group. (GHC only)
-forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId α)
+forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId, Result α)
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
 #endif
 
-fork ∷ (IO () → IO C.ThreadId) → ThreadGroup → IO α → IO (ThreadId α)
+fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, Result α)
 fork doFork (ThreadGroup mc l) a = do
   res ← newEmptyTMVarIO
   b ← blocked
-  block $ do
+  tid ← block $ do
     atomically increment
-    fmap (ThreadId res) $ doFork $ do
+    doFork $ do
       r ← try (if b then a else unblock a)
       atomically $ putTMVar res r >> decrement
+  return (tid, Result res)
   where
     increment = do numThreads ← readTVar mc
                    when (numThreads ≡ 0) $ Lock.acquire l

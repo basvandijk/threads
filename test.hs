@@ -11,7 +11,7 @@ module Main where
 -------------------------------------------------------------------------------
 
 -- from base:
-import Control.Concurrent ( threadDelay )
+import Control.Concurrent ( ThreadId, threadDelay, throwTo, killThread )
 import Control.Exception  ( Exception, fromException
                           , AsyncException(ThreadKilled)
                           , throwIO
@@ -49,11 +49,11 @@ import Test.Framework ( Test, defaultMain, testGroup )
 import Test.Framework.Providers.HUnit ( testCase )
 
 -- from threads:
-import qualified Control.Concurrent.Thread as Thread
-import Control.Concurrent.Thread ( ThreadId )
-
-import qualified Control.Concurrent.Thread.Group as ThreadGroup
+import Control.Concurrent.Thread       ( Result )
 import Control.Concurrent.Thread.Group ( ThreadGroup )
+
+import qualified Control.Concurrent.Thread       as Thread
+import qualified Control.Concurrent.Thread.Group as ThreadGroup
 
 import TestUtils ( a_moment )
 import Utils     ( (<$$>) )
@@ -139,17 +139,17 @@ tests = [ testGroup "Thread" $
 -- General properties
 -------------------------------------------------------------------------------
 
-type Fork α = IO α → IO (ThreadId α)
+type Fork α = IO α → IO (ThreadId, Result α)
 
 test_wait ∷ Fork () → Assertion
 test_wait fork = assert
                $ fmap (maybe False id)
                $ timeout (10 ⋅ a_moment) $ do
   r ← newIORef False
-  tid ← fork $ do
+  (_, result) ← fork $ do
     threadDelay $ 2 ⋅ a_moment
     writeIORef r True
-  _ ← Thread.wait tid
+  _ ← Thread.wait result
   readIORef r
 
 test_isRunning ∷ Fork () → Assertion
@@ -157,34 +157,35 @@ test_isRunning fork = assert
                     $ fmap (maybe False id)
                     $ timeout (10 ⋅ a_moment) $ do
   l ← Lock.newAcquired
-  tid ← fork $ Lock.acquire l
-  r ← Thread.isRunning tid
+  (_, result) ← fork $ Lock.acquire l
+  r ← Thread.isRunning result
   Lock.release l
   return r
 
 test_blockedState ∷ Fork Bool → Assertion
-test_blockedState fork = (block $ fork $ blocked) >>=
-                         Thread.unsafeWait >>= assert
+test_blockedState fork = do (_, result) ← block $ fork $ blocked
+                            Thread.unsafeWait result >>= assert
 
 test_unblockedState ∷ Fork Bool → Assertion
-test_unblockedState fork = (unblock $ fork $ not <$> blocked) >>=
-                           Thread.unsafeWait >>= assert
+test_unblockedState fork = do (_, result) ← unblock $ fork $ not <$> blocked
+                              Thread.unsafeWait result >>= assert
 
 test_sync_exception ∷ Fork () → Assertion
-test_sync_exception fork = assert $
-  fork (throwIO MyException) >>= waitForException MyException
+test_sync_exception fork = assert $ do
+  (_, result) ← fork $ throwIO MyException
+  waitForException MyException result
 
-waitForException ∷ (Exception e, Eq e) ⇒ e → Thread.ThreadId α → IO Bool
-waitForException e tid = Thread.wait tid <$$>
-                           either (maybe False (≡ e) ∘ fromException)
-                                  (const False)
+waitForException ∷ (Exception e, Eq e) ⇒ e → Result α → IO Bool
+waitForException e result = Thread.wait result <$$>
+                              either (maybe False (≡ e) ∘ fromException)
+                                     (const False)
 
 test_async_exception ∷ Fork () → Assertion
 test_async_exception fork = assert $ do
   l ← Lock.newAcquired
-  tid ← fork $ Lock.acquire l
-  Thread.throwTo tid MyException
-  waitForException MyException tid
+  (tid, result) ← fork $ Lock.acquire l
+  throwTo tid MyException
+  waitForException MyException result
 
 data MyException = MyException deriving (Show, Eq, Typeable)
 instance Exception MyException
@@ -192,9 +193,9 @@ instance Exception MyException
 test_killThread ∷ Fork () → Assertion
 test_killThread fork = assert $ do
   l ← Lock.newAcquired
-  tid ← fork $ Lock.acquire l
-  Thread.killThread tid
-  waitForException ThreadKilled tid
+  (tid, result) ← fork $ Lock.acquire l
+  killThread tid
+  waitForException ThreadKilled result
 
 
 -------------------------------------------------------------------------------

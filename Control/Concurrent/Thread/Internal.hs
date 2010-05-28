@@ -1,60 +1,18 @@
 {-# LANGUAGE DeriveDataTypeable, NoImplicitPrelude, UnicodeSyntax #-}
 
-module Control.Concurrent.Thread.Internal
-    ( ThreadId( ThreadId )
-    , result, threadId
-    ) where
-
-
--------------------------------------------------------------------------------
--- Imports
--------------------------------------------------------------------------------
+module Control.Concurrent.Thread.Internal ( Result(Result), unResult ) where
 
 -- from base:
-import Control.Exception                 ( SomeException )
-import Data.Eq                           ( Eq, (==) )
-import Data.Either                       ( Either )
-import Data.Function                     ( on )
-import Data.Ord                          ( Ord, compare )
-import Data.Typeable                     ( Typeable )
-import Text.Show                         ( Show, show )
-import qualified Control.Concurrent as C ( ThreadId )
-
--- from base-unicode-symbols:
-import Data.Function.Unicode ( (∘) )
+import Control.Exception ( SomeException )
+import Data.Either       ( Either )
+import Data.Typeable     ( Typeable )
 
 -- from stm:
 import Control.Concurrent.STM.TMVar ( TMVar )
 
-
--------------------------------------------------------------------------------
--- ThreadIds
--------------------------------------------------------------------------------
-
 {-|
-A @'ThreadId' &#x3B1;@ is an abstract type representing a handle to a thread
+A @'Result' &#x3B1;@ is an abstract type representing the result of a thread
 that is executing or has executed a computation of type @'IO' &#x3B1;@.
 -}
-data ThreadId α = ThreadId
-    { result   ∷ TMVar (Either SomeException α)
-    , threadId ∷ C.ThreadId -- ^ Extract the native
-                            -- @Control.Concurrent.'C.ThreadId'@.
-    } deriving Typeable
-
-instance Eq (ThreadId α) where
-    (==) = (==) `on` threadId
-
--- | The @Ord@ instance implements an arbitrary total ordering over 'ThreadId's.
-instance Ord (ThreadId α) where
-    compare = compare `on` threadId
-
-{-|
-The @Show@ instance lets you convert an arbitrary-valued 'ThreadId' to string
-form; showing a 'ThreadId' value is occasionally useful when debugging or
-diagnosing the behaviour of a concurrent program.
--}
-instance Show (ThreadId α) where
-    show = show ∘ threadId
-
-
--- The End ---------------------------------------------------------------------
+newtype Result α = Result { unResult ∷ TMVar (Either SomeException α) }
+     deriving Typeable
