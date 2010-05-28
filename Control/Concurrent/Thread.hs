@@ -56,12 +56,12 @@ import Data.Bool          ( Bool(..) )
 import Data.Either        ( Either(..), either )
 import Data.Function      ( ($), const )
 import Data.Functor       ( fmap )
-import Data.Int           ( Int )
 import Data.Maybe         ( Maybe(..), isNothing )
 import System.IO          ( IO )
 
 #ifdef __GLASGOW_HASKELL__
 import qualified GHC.Conc ( forkOnIO )
+import Data.Int           ( Int )
 #endif
 
 -- from base-unicode-symbols:

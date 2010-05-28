@@ -55,13 +55,13 @@ import Control.Exception       ( blocked, block, unblock, try )
 import Control.Monad           ( return, (>>=), (>>), fail, when, liftM2 )
 import Data.Bool               ( Bool(..) )
 import Data.Function           ( ($) )
-import Data.Int                ( Int )
 import Data.Typeable           ( Typeable )
 import System.IO               ( IO )
 import Prelude                 ( Integer, fromInteger, (+), (-), ($!) )
 
 #ifdef __GLASGOW_HASKELL__
 import qualified GHC.Conc      ( forkOnIO )
+import Data.Int                ( Int )
 #endif
 
 -- from base-unicode-symbols:
