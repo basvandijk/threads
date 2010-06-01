@@ -97,9 +97,23 @@ import qualified Control.Concurrent.Thread as Thread ( forkIO
 -- Thread groups
 -------------------------------------------------------------------------------
 
+{-| A @ThreadGroup@ can be understood as a counter which counts the number of
+threads that were added to the group minus the ones that are terminated.
+
+More formally a @ThreadGroup@ has the following semantics:
+
+* 'new' initializes the counter to 0.
+
+* The various @fork@ functions increment the counter.
+
+* When the threads, that were created with the various @fork@ functions, terminate
+the counter is decremented.
+
+* 'wait' blocks until the counter is 0.
+-}
 data ThreadGroup = ThreadGroup (TVar Integer) Lock deriving Typeable
 
--- | Create a new empty group of threads.
+-- | Create an empty group of threads.
 new ∷ IO ThreadGroup
 new = atomically $ liftM2 ThreadGroup (newTVar 0) (Lock.new)
 
