@@ -142,7 +142,7 @@ fork doFork (ThreadGroup mc l) a = do
     atomically increment
     doFork $ do
       r ← try (if parentIsBlocked then a else unblock a)
-      atomically $ putTMVar res r >> decrement
+      atomically $ decrement >> putTMVar res r
   return (tid, Result res)
   where
     increment = do numThreads ← readTVar mc
