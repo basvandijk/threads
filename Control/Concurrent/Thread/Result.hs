@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, NoImplicitPrelude, UnicodeSyntax #-}
+{-# LANGUAGE CPP, DeriveDataTypeable, NoImplicitPrelude, UnicodeSyntax #-}
 
 module Control.Concurrent.Thread.Result ( Result(Result), unResult ) where
 
@@ -6,6 +6,10 @@ module Control.Concurrent.Thread.Result ( Result(Result), unResult ) where
 import Control.Exception ( SomeException )
 import Data.Either       ( Either )
 import Data.Typeable     ( Typeable )
+
+#ifdef __HADDOCK__
+import System.IO ( IO )
+#endif
 
 -- from stm:
 import Control.Concurrent.STM.TMVar ( TMVar )
