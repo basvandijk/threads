@@ -81,7 +81,7 @@ import qualified Control.Concurrent.STM.Lock as Lock ( new
                                                      )
 
 -- from threads:
-import Control.Concurrent.Thread.Internal ( Result(Result) )
+import Control.Concurrent.Thread.Result ( Result(Result) )
 
 #ifdef __HADDOCK__
 import qualified Control.Concurrent.Thread as Thread ( forkIO

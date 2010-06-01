@@ -72,7 +72,7 @@ import Control.Concurrent.STM.TMVar ( newEmptyTMVarIO, putTMVar, readTMVar )
 import Control.Concurrent.STM       ( atomically )
 
 -- from threads:
-import Control.Concurrent.Thread.Internal ( Result(Result), unResult )
+import Control.Concurrent.Thread.Result ( Result(Result), unResult )
 
 import Utils ( void, throwInner, tryReadTMVar )
 

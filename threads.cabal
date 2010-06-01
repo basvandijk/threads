@@ -62,7 +62,7 @@ library
                , concurrent-extra     >= 0.5.1 && < 0.6
   exposed-modules: Control.Concurrent.Thread
                  , Control.Concurrent.Thread.Group
-  other-modules:   Control.Concurrent.Thread.Internal
+  other-modules:   Control.Concurrent.Thread.Result
                ,   Utils
   ghc-options: -Wall
 

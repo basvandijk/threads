@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable, NoImplicitPrelude, UnicodeSyntax #-}
 
-module Control.Concurrent.Thread.Internal ( Result(Result), unResult ) where
+module Control.Concurrent.Thread.Result ( Result(Result), unResult ) where
 
 -- from base:
 import Control.Exception ( SomeException )
