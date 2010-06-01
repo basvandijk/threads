@@ -6,9 +6,9 @@
 
 module Main where
 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- Imports
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 -- from base:
 import Control.Concurrent ( ThreadId, threadDelay, throwTo, killThread )
@@ -21,10 +21,10 @@ import Control.Monad      ( return, (>>=), fail, (>>) )
 import Data.Bool          ( Bool(False, True), not )
 import Data.Eq            ( Eq )
 import Data.Either        ( either )
-import Data.Function      ( ($), id, const )
+import Data.Function      ( ($), const )
 import Data.Functor       ( fmap, (<$>) )
+import Data.Int           ( Int )
 import Data.IORef         ( newIORef, readIORef, writeIORef )
-import Data.Maybe         ( maybe )
 import Data.Typeable      ( Typeable )
 import Prelude            ( fromInteger )
 import System.Timeout     ( timeout )
@@ -33,11 +33,10 @@ import Text.Show          ( Show )
 
 -- from base-unicode-symbols:
 import Prelude.Unicode       ( (⋅) )
-import Data.Eq.Unicode       ( (≡) )
 import Data.Function.Unicode ( (∘) )
 
 -- from concurrent-extra:
-import qualified Control.Concurrent.Lock   as Lock
+import qualified Control.Concurrent.Lock as Lock
 
 -- from HUnit:
 import Test.HUnit ( Assertion, assert )
@@ -55,13 +54,12 @@ import Control.Concurrent.Thread.Group ( ThreadGroup )
 import qualified Control.Concurrent.Thread       as Thread
 import qualified Control.Concurrent.Thread.Group as ThreadGroup
 
-import TestUtils ( a_moment )
-import Utils     ( (<$$>) )
+import Utils ( isJustTrue, justEq, (<$$>) )
 
 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- Tests
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 main ∷ IO ()
 main = defaultMain tests
@@ -134,17 +132,19 @@ tests = [ testGroup "Thread" $
           ]
         ]
 
+-- Exactly 1 moment. Currently equal to 0.005 seconds.
+a_moment ∷ Int
+a_moment = 5000
 
--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
 -- General properties
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 type Fork α = IO α → IO (ThreadId, Result α)
 
 test_wait ∷ Fork () → Assertion
-test_wait fork = assert
-               $ fmap (maybe False id)
-               $ timeout (10 ⋅ a_moment) $ do
+test_wait fork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
   r ← newIORef False
   (_, result) ← fork $ do
     threadDelay $ 2 ⋅ a_moment
@@ -153,9 +153,7 @@ test_wait fork = assert
   readIORef r
 
 test_isRunning ∷ Fork () → Assertion
-test_isRunning fork = assert
-                    $ fmap (maybe False id)
-                    $ timeout (10 ⋅ a_moment) $ do
+test_isRunning fork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
   l ← Lock.newAcquired
   (_, result) ← fork $ Lock.acquire l
   r ← Thread.isRunning result
@@ -177,7 +175,7 @@ test_sync_exception fork = assert $ do
 
 waitForException ∷ (Exception e, Eq e) ⇒ e → Result α → IO Bool
 waitForException e result = Thread.wait result <$$>
-                              either (maybe False (≡ e) ∘ fromException)
+                              either (justEq e ∘ fromException)
                                      (const False)
 
 test_async_exception ∷ Fork () → Assertion
@@ -198,9 +196,9 @@ test_killThread fork = assert $ do
   waitForException ThreadKilled result
 
 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- ThreadGroup
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 wrapIO ∷ (Fork α → IO β) → IO β
 wrapIO = wrap ThreadGroup.forkIO
@@ -217,9 +215,7 @@ wrap ∷ (ThreadGroup → Fork α) → (Fork α → IO β) → IO β
 wrap doFork test = ThreadGroup.new >>= test ∘ doFork
 
 test_group_single_wait ∷ (ThreadGroup → Fork ()) → Assertion
-test_group_single_wait doFork = assert
-                              $ fmap (maybe False id)
-                              $ timeout (10 ⋅ a_moment) $ do
+test_group_single_wait doFork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
   tg ← ThreadGroup.new
   r ← newIORef False
   _ ← doFork tg $ do
@@ -229,9 +225,7 @@ test_group_single_wait doFork = assert
   readIORef r
 
 test_group_single_isRunning ∷ (ThreadGroup → Fork ()) → Assertion
-test_group_single_isRunning doFork = assert
-                                   $ fmap (maybe False id)
-                                   $ timeout (10 ⋅ a_moment) $ do
+test_group_single_isRunning doFork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
   tg ← ThreadGroup.new
   l ← Lock.newAcquired
   _ ← doFork tg $ Lock.acquire l

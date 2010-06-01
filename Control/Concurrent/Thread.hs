@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, NoImplicitPrelude, UnicodeSyntax #-}
 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- |
 -- Module     : Control.Concurrent.Thread
 -- Copyright  : (c) 2010 Bas van Dijk & Roel van Dijk
@@ -18,7 +18,7 @@
 -- import qualified Control.Concurrent.Thread as Thread ( ... )
 -- @
 --
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 module Control.Concurrent.Thread
   ( -- * The result of a thread
@@ -43,12 +43,12 @@ module Control.Concurrent.Thread
   ) where
 
 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- Imports
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 -- from base:
-import qualified Control.Concurrent as C ( forkIO, forkOS )
+import qualified Control.Concurrent ( forkIO, forkOS )
 import Control.Concurrent ( ThreadId )
 import Control.Exception  ( SomeException , blocked, block, unblock, try )
 import Control.Monad      ( return, (>>=), fail )
@@ -77,9 +77,9 @@ import Control.Concurrent.Thread.Result ( Result(Result), unResult )
 import Utils ( void, throwInner, tryReadTMVar )
 
 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- * Forking threads
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 {-|
 Sparks off a new thread to run the given 'IO' computation and returns the
@@ -93,7 +93,7 @@ GHC note: the new thread inherits the blocked state of the parent (see
 'Control.Exception.block').
 -}
 forkIO ∷ IO α → IO (ThreadId, Result α)
-forkIO = fork C.forkIO
+forkIO = fork Control.Concurrent.forkIO
 
 {-|
 Like 'forkIO', this sparks off a new thread to run the given 'IO' computation
@@ -113,7 +113,7 @@ necessary to use the @-threaded@ option when linking your program, and to make
 sure the foreign import is not marked @unsafe@.
 -}
 forkOS ∷ IO α → IO (ThreadId, Result α)
-forkOS = fork C.forkOS
+forkOS = fork Control.Concurrent.forkOS
 
 #ifdef __GLASGOW_HASKELL__
 {-|
@@ -133,8 +133,10 @@ forkOnIO ∷ Int → IO α → IO (ThreadId, Result α)
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
 #endif
 
+--------------------------------------------------------------------------------
+
 -- | Internally used function which generalises 'forkIO', 'forkOS' and
--- 'forkOnIO'. Parametrised by the function which does the actual forking.
+-- 'forkOnIO' by parameterizing the function which does the actual forking.
 fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, Result α))
 fork doFork = \a → do
   res ← newEmptyTMVarIO
@@ -145,9 +147,9 @@ fork doFork = \a → do
   return (tid, Result res)
 
 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- * Waiting for results
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 {-|
 Block until the thread, to which the given 'Result' belongs, is terminated.
@@ -175,9 +177,9 @@ unsafeWait_ ∷ Result α → IO ()
 unsafeWait_ result = wait result >>= either throwInner (const $ return ())
 
 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- * Quering results
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 {-|
 A non-blocking 'wait'.
