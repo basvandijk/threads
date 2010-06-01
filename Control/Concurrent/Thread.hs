@@ -133,10 +133,8 @@ forkOnIO ∷ Int → IO α → IO (ThreadId, Result α)
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
 #endif
 
-{-|
-Internally used function which generalises 'forkIO' and 'forkOS'. Parametrised
-by the function which does the actual forking.
--}
+-- | Internally used function which generalises 'forkIO', 'forkOS' and
+-- 'forkOnIO'. Parametrised by the function which does the actual forking.
 fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, Result α))
 fork doFork = \a → do
   res ← newEmptyTMVarIO

@@ -27,7 +27,7 @@
 ---------------------------------------------------------------------------------
 
 module Control.Concurrent.Thread.Group
-    ( -- * Creating
+    ( -- * Groups of threads
       ThreadGroup
     , new
 
@@ -94,28 +94,32 @@ import qualified Control.Concurrent.Thread as Thread ( forkIO
 
 
 -------------------------------------------------------------------------------
--- Thread groups
+-- * Thread groups
 -------------------------------------------------------------------------------
 
 {-| A @ThreadGroup@ can be understood as a counter which counts the number of
-threads that were added to the group minus the ones that are terminated.
+threads that were added to the group minus the ones that have terminated.
 
 More formally a @ThreadGroup@ has the following semantics:
 
 * 'new' initializes the counter to 0.
 
-* The various @fork@ functions increment the counter.
+* Forking a thread increment the counter.
 
-* When the threads, that were created with the various @fork@ functions, terminate
-the counter is decremented.
+* When a forked thread terminates the counter is decremented.
 
-* 'wait' blocks until the counter is 0.
+* 'wait' blocks as long as the counter is not 0.
 -}
 data ThreadGroup = ThreadGroup (TVar Integer) Lock deriving Typeable
 
 -- | Create an empty group of threads.
 new ∷ IO ThreadGroup
 new = atomically $ liftM2 ThreadGroup (newTVar 0) (Lock.new)
+
+
+-------------------------------------------------------------------------------
+-- * Forking threads
+-------------------------------------------------------------------------------
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkIO'@ but additionaly adds
 -- the thread to the group.
@@ -134,6 +138,8 @@ forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId, Result α)
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
 #endif
 
+-- | Internally used function which generalises 'forkIO', 'forkOS' and
+-- 'forkOnIO'. Parametrised by the function which does the actual forking.
 fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, Result α)
 fork doFork (ThreadGroup mc l) a = do
   res ← newEmptyTMVarIO
@@ -153,6 +159,12 @@ fork doFork (ThreadGroup mc l) a = do
                    when (numThreads ≡ 1) $ Lock.release l
                    writeTVar mc $! numThreads - 1
 
+
+-------------------------------------------------------------------------------
+-- * Waiting & Status
+-------------------------------------------------------------------------------
+
+-- | Internally used function which retrieves the 'Lock' from the 'ThreadGroup'.
 lock ∷ ThreadGroup → Lock
 lock (ThreadGroup _ l) = l
 
