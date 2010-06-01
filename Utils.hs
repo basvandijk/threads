@@ -13,11 +13,13 @@ import Data.Bool                    ( Bool )
 import Data.Function                ( flip )
 import Data.Functor                 ( Functor, (<$>), (<$) )
 import Data.Maybe                   ( Maybe(Nothing, Just) )
+import Prelude                      ( ($!) )
 import System.IO                    ( IO )
 
 -- from stm:
 import Control.Concurrent.STM       ( STM )
 import Control.Concurrent.STM.TMVar ( TMVar, tryTakeTMVar, putTMVar )
+import Control.Concurrent.STM.TVar  ( TVar, readTVar, writeTVar )
 
 
 --------------------------------------------------------------------------------
@@ -41,6 +43,14 @@ tryReadTMVar mv = do mx ← tryTakeTMVar mv
                      case mx of
                        Nothing → return mx
                        Just x  → putTMVar mv x >> return mx
+
+-- | Strictly modify the contents of a 'TVar'.
+modifyTVar ∷ TVar α → (α → α) → STM ()
+modifyTVar tv f = readTVar tv >>= writeTVar tv ∘! f
+
+-- | Strict function composition
+(∘!) ∷ (β → γ) → (α → β) → (α → γ)
+f ∘! g = \x → f $! g x
 
 
 -- The End ---------------------------------------------------------------------

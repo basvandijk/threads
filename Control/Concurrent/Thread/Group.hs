@@ -52,12 +52,14 @@ module Control.Concurrent.Thread.Group
 import qualified Control.Concurrent as C ( forkIO, forkOS )
 import Control.Concurrent      ( ThreadId )
 import Control.Exception       ( blocked, block, unblock, try )
-import Control.Monad           ( return, (>>=), (>>), fail, when, liftM2 )
+import Control.Monad           ( return, (>>=), (>>), fail, when )
 import Data.Bool               ( Bool(..) )
 import Data.Function           ( ($) )
+import Data.Functor            ( fmap )
 import Data.Typeable           ( Typeable )
+import Prelude                 ( succ, pred )
 import System.IO               ( IO )
-import Prelude                 ( Integer, fromInteger, (+), (-), ($!) )
+import Prelude                 ( Integer, fromInteger )
 
 #ifdef __GLASGOW_HASKELL__
 import qualified GHC.Conc      ( forkOnIO )
@@ -65,23 +67,18 @@ import Data.Int                ( Int )
 #endif
 
 -- from base-unicode-symbols:
-import Data.Eq.Unicode         ( (≡) )
+import Data.Eq.Unicode         ( (≢) )
 import Data.Function.Unicode   ( (∘) )
 
 -- from stm:
-import Control.Concurrent.STM.TVar  ( TVar, newTVar, writeTVar, readTVar )
+import Control.Concurrent.STM.TVar  ( TVar, newTVar, readTVar )
 import Control.Concurrent.STM.TMVar ( newEmptyTMVarIO, putTMVar )
-import Control.Concurrent.STM       ( atomically )
-
--- from concurrent-extra:
-import Control.Concurrent.STM.Lock ( Lock )
-import qualified Control.Concurrent.STM.Lock as Lock ( new
-                                                     , acquire, release
-                                                     , wait, locked
-                                                     )
+import Control.Concurrent.STM       ( atomically, retry )
 
 -- from threads:
 import Control.Concurrent.Thread.Result ( Result(Result) )
+
+import Utils ( modifyTVar )
 
 #ifdef __HADDOCK__
 import qualified Control.Concurrent.Thread as Thread ( forkIO
@@ -110,11 +107,11 @@ More formally a @ThreadGroup@ has the following semantics:
 
 * 'wait' blocks as long as the counter is not 0.
 -}
-data ThreadGroup = ThreadGroup (TVar Integer) Lock deriving Typeable
+newtype ThreadGroup = ThreadGroup (TVar Integer) deriving Typeable
 
 -- | Create an empty group of threads.
 new ∷ IO ThreadGroup
-new = atomically $ liftM2 ThreadGroup (newTVar 0) (Lock.new)
+new = atomically $ fmap ThreadGroup $ newTVar 0
 
 
 -------------------------------------------------------------------------------
@@ -141,36 +138,25 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 -- | Internally used function which generalises 'forkIO', 'forkOS' and
 -- 'forkOnIO'. Parametrised by the function which does the actual forking.
 fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, Result α)
-fork doFork (ThreadGroup mc l) a = do
+fork doFork (ThreadGroup mc) a = do
   res ← newEmptyTMVarIO
   parentIsBlocked ← blocked
   tid ← block $ do
-    atomically increment
+    atomically $ modifyTVar mc succ
     doFork $ do
-      r ← try (if parentIsBlocked then a else unblock a)
-      atomically $ decrement >> putTMVar res r
+      r ← try $ if parentIsBlocked then a else unblock a
+      atomically $ modifyTVar mc pred >> putTMVar res r
   return (tid, Result res)
-  where
-    increment = do numThreads ← readTVar mc
-                   when (numThreads ≡ 0) $ Lock.acquire l
-                   writeTVar mc $! numThreads + 1
-
-    decrement = do numThreads ← readTVar mc
-                   when (numThreads ≡ 1) $ Lock.release l
-                   writeTVar mc $! numThreads - 1
 
 
 -------------------------------------------------------------------------------
 -- * Waiting & Status
 -------------------------------------------------------------------------------
 
--- | Internally used function which retrieves the 'Lock' from the 'ThreadGroup'.
-lock ∷ ThreadGroup → Lock
-lock (ThreadGroup _ l) = l
-
 -- | Block until all threads, that were added to the group have terminated.
 wait ∷ ThreadGroup → IO ()
-wait = atomically ∘ Lock.wait ∘ lock
+wait (ThreadGroup mc) = atomically $ do numThreads ← readTVar mc
+                                        when (numThreads ≢ 0) retry
 
 {-|
 Returns 'True' if any thread in the group is running and returns 'False'
@@ -180,7 +166,8 @@ Notice that this observation is only a snapshot of a group's state. By the time
 a program reacts on its result it may already be out of date.
 -}
 isAnyRunning ∷ ThreadGroup → IO Bool
-isAnyRunning = atomically ∘ Lock.locked ∘ lock
+isAnyRunning (ThreadGroup mc) = atomically $ fmap (≢ 0) $ readTVar mc
+
 
 
 -- The End ---------------------------------------------------------------------
