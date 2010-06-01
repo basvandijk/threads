@@ -123,11 +123,11 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, Result α)
 fork doFork (ThreadGroup mc l) a = do
   res ← newEmptyTMVarIO
-  b ← blocked
+  parentIsBlocked ← blocked
   tid ← block $ do
     atomically increment
     doFork $ do
-      r ← try (if b then a else unblock a)
+      r ← try (if parentIsBlocked then a else unblock a)
       atomically $ putTMVar res r >> decrement
   return (tid, Result res)
   where
