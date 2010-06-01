@@ -195,7 +195,7 @@ Notice that this observation is only a snapshot of a thread's state. By the time
 a program reacts on its result it may already be out of date.
 -}
 status ∷ Result α → IO (Maybe (Either SomeException α))
-status = tryReadTMVar ∘ unResult
+status = atomically ∘ tryReadTMVar ∘ unResult
 
 {-|
 If the thread, to which the given 'Result' belongs, is currently running return

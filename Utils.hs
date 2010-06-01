@@ -10,13 +10,13 @@ module Utils where
 import Control.Exception            ( SomeException(SomeException), throwIO )
 import Control.Monad                ( Monad, return, (>>=), (>>), fail )
 import Data.Bool                    ( Bool )
-import Data.Function                ( ($), flip )
+import Data.Function                ( flip )
 import Data.Functor                 ( Functor, (<$>), (<$) )
 import Data.Maybe                   ( Maybe(Nothing, Just) )
 import System.IO                    ( IO )
 
 -- from stm:
-import Control.Concurrent.STM       ( atomically )
+import Control.Concurrent.STM       ( STM )
 import Control.Concurrent.STM.TMVar ( TMVar, tryTakeTMVar, putTMVar )
 
 
@@ -36,12 +36,11 @@ ifM c t e = c >>= \b → if b then t else e
 throwInner ∷ SomeException → IO α
 throwInner (SomeException e) = throwIO e
 
-tryReadTMVar ∷ TMVar α → IO (Maybe α)
-tryReadTMVar mv = atomically $ do
-                    mx ← tryTakeTMVar mv
-                    case mx of
-                      Nothing → return mx
-                      Just x  → putTMVar mv x >> return mx
+tryReadTMVar ∷ TMVar α → STM (Maybe α)
+tryReadTMVar mv = do mx ← tryTakeTMVar mv
+                     case mx of
+                       Nothing → return mx
+                       Just x  → putTMVar mv x >> return mx
 
 
 -- The End ---------------------------------------------------------------------
