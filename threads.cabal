@@ -48,10 +48,6 @@ flag hpc
   description: Enable program coverage on test executable
   default:     False
 
-flag nolib
-  description: Don't build the library
-  default:     False
-
 -------------------------------------------------------------------------------
 
 library
@@ -63,9 +59,6 @@ library
   other-modules:   Control.Concurrent.Thread.Result
                ,   Utils
   ghc-options: -Wall
-
-  if flag(nolib)
-    buildable: False
 
 -------------------------------------------------------------------------------
 
