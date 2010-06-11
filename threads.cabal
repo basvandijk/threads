@@ -1,5 +1,5 @@
 name:          threads
-version:       0.2
+version:       0.3
 cabal-version: >= 1.6
 build-type:    Custom
 stability:     experimental
@@ -56,8 +56,6 @@ library
                , stm                  >= 2.1   && < 2.2
   exposed-modules: Control.Concurrent.Thread
                  , Control.Concurrent.Thread.Group
-  other-modules:   Control.Concurrent.Thread.Result
-               ,   Utils
   ghc-options: -Wall
 
 -------------------------------------------------------------------------------

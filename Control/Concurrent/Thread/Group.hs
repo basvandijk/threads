@@ -57,7 +57,7 @@ import Data.Bool                        ( Bool(..) )
 import Data.Function                    ( ($) )
 import Data.Functor                     ( fmap )
 import Data.Typeable                    ( Typeable )
-import Prelude                          ( Integer, fromInteger, succ, pred )
+import Prelude                          ( ($!), Integer, fromInteger, succ, pred )
 import System.IO                        ( IO )
 
 #ifdef __GLASGOW_HASKELL__
@@ -70,14 +70,12 @@ import Data.Eq.Unicode                  ( (≢) )
 import Data.Function.Unicode            ( (∘) )
 
 -- from stm:
-import Control.Concurrent.STM.TVar      ( TVar, newTVar, readTVar )
-import Control.Concurrent.STM.TMVar     ( newEmptyTMVarIO, putTMVar )
-import Control.Concurrent.STM           ( atomically, retry )
+import Control.Concurrent.STM.TVar      ( TVar, newTVar, readTVar, writeTVar )
+import Control.Concurrent.STM.TMVar     ( newEmptyTMVarIO, putTMVar, readTMVar )
+import Control.Concurrent.STM           ( STM, atomically, retry )
 
 -- from threads:
-import Control.Concurrent.Thread.Result ( Result(Result) )
-
-import Utils ( modifyTVar )
+import Control.Concurrent.Thread ( Wait )
 
 #ifdef __HADDOCK__
 import qualified Control.Concurrent.Thread as Thread ( forkIO
@@ -120,18 +118,18 @@ new = atomically $ fmap ThreadGroup $ newTVar 0
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkIO'@ but additionaly adds
 -- the thread to the group.
-forkIO ∷ ThreadGroup → IO α → IO (ThreadId, Result α)
+forkIO ∷ ThreadGroup → IO α → IO (ThreadId, Wait α)
 forkIO = fork Control.Concurrent.forkIO
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOS'@ but additionaly adds
 -- the thread to the group.
-forkOS ∷ ThreadGroup → IO α → IO (ThreadId, Result α)
+forkOS ∷ ThreadGroup → IO α → IO (ThreadId, Wait α)
 forkOS = fork Control.Concurrent.forkOS
 
 #ifdef __GLASGOW_HASKELL__
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOnIO'@ but
 -- additionaly adds the thread to the group. (GHC only)
-forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId, Result α)
+forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId, Wait α)
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
 #endif
 
@@ -139,7 +137,7 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 
 -- | Internally used function which generalises 'forkIO', 'forkOS' and
 -- 'forkOnIO' by parameterizing the function which does the actual forking.
-fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, Result α)
+fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, Wait α)
 fork doFork (ThreadGroup numThreadsTV) a = do
   res ← newEmptyTMVarIO
   parentIsBlocked ← blocked
@@ -148,7 +146,15 @@ fork doFork (ThreadGroup numThreadsTV) a = do
     doFork $ do
       r ← try $ if parentIsBlocked then a else unblock a
       atomically $ modifyTVar numThreadsTV pred >> putTMVar res r
-  return (tid, Result res)
+  return (tid, atomically $ readTMVar res)
+
+-- | Strictly modify the contents of a 'TVar'.
+modifyTVar ∷ TVar α → (α → α) → STM ()
+modifyTVar tv f = readTVar tv >>= writeTVar tv ∘! f
+
+-- | Strict function composition
+(∘!) ∷ (β → γ) → (α → β) → (α → γ)
+f ∘! g = \x → f $! g x
 
 
 --------------------------------------------------------------------------------

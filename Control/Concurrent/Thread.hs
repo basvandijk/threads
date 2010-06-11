@@ -21,25 +21,16 @@
 --------------------------------------------------------------------------------
 
 module Control.Concurrent.Thread
-  ( -- * The result of a thread
-    Result
-
-    -- * Forking threads
-  , forkIO
+  ( -- * Forking threads
+    forkIO
   , forkOS
 #ifdef __GLASGOW_HASKELL__
   , forkOnIO
 #endif
 
     -- * Waiting for results
-  , wait
-  , wait_
-  , unsafeWait
-  , unsafeWait_
-
-    -- * Querying results
-  , status
-  , isRunning
+  , Wait
+  , unsafeResult
   ) where
 
 
@@ -49,32 +40,26 @@ module Control.Concurrent.Thread
 
 -- from base:
 import qualified Control.Concurrent ( forkIO, forkOS )
-import Control.Concurrent ( ThreadId )
-import Control.Exception  ( SomeException , blocked, block, unblock, try )
-import Control.Monad      ( return, (>>=), fail )
-import Data.Bool          ( Bool(..) )
-import Data.Either        ( Either(..), either )
-import Data.Function      ( ($), const )
-import Data.Functor       ( fmap )
-import Data.Maybe         ( Maybe(..), isNothing )
-import System.IO          ( IO )
+import Control.Concurrent           ( ThreadId )
+import Control.Exception            ( SomeException(SomeException)
+                                    , blocked, block, unblock, try, throwIO
+                                    )
+import Control.Monad                ( return, (>>=), fail )
+import Data.Either                  ( Either(..), either )
+import Data.Function                ( ($) )
+import System.IO                    ( IO )
 
 #ifdef __GLASGOW_HASKELL__
-import qualified GHC.Conc ( forkOnIO )
-import Data.Int           ( Int )
+import qualified GHC.Conc           ( forkOnIO )
+import Data.Int                     ( Int )
 #endif
 
 -- from base-unicode-symbols:
-import Data.Function.Unicode ( (∘) )
+import Data.Function.Unicode        ( (∘) )
 
 -- from stm:
 import Control.Concurrent.STM.TMVar ( newEmptyTMVarIO, putTMVar, readTMVar )
 import Control.Concurrent.STM       ( atomically )
-
--- from threads:
-import Control.Concurrent.Thread.Result ( Result(Result), unResult )
-
-import Utils ( void, throwInner, tryReadTMVar )
 
 
 --------------------------------------------------------------------------------
@@ -83,8 +68,8 @@ import Utils ( void, throwInner, tryReadTMVar )
 
 {-|
 Sparks off a new thread to run the given 'IO' computation and returns the
-'ThreadId' of the newly created thread paired with the 'Result' of the thread
-which can be @'wait'ed@ upon.
+'ThreadId' of the newly created thread paired with an IO computation that waits
+for the termination of the thread.
 
 The new thread will be a lightweight thread; if you want to use a foreign
 library that uses thread-local storage, use 'forkOS' instead.
@@ -92,13 +77,13 @@ library that uses thread-local storage, use 'forkOS' instead.
 GHC note: the new thread inherits the blocked state of the parent (see
 'Control.Exception.block').
 -}
-forkIO ∷ IO α → IO (ThreadId, Result α)
+forkIO ∷ IO α → IO (ThreadId, Wait α)
 forkIO = fork Control.Concurrent.forkIO
 
 {-|
 Like 'forkIO', this sparks off a new thread to run the given 'IO' computation
-and returns the 'ThreadId' of the newly created thread paired with the 'Result'
-of the thread which can be @'wait'ed@ upon.
+and returns the 'ThreadId' of the newly created thread paired with an IO
+computation that waits for the termination of the thread.
 
 Unlike 'forkIO', 'forkOS' creates a /bound/ thread, which is necessary if you
 need to call foreign (non-Haskell) libraries that make use of thread-local
@@ -112,7 +97,7 @@ to be made without blocking all the Haskell threads (with GHC), it is only
 necessary to use the @-threaded@ option when linking your program, and to make
 sure the foreign import is not marked @unsafe@.
 -}
-forkOS ∷ IO α → IO (ThreadId, Result α)
+forkOS ∷ IO α → IO (ThreadId, Wait α)
 forkOS = fork Control.Concurrent.forkOS
 
 #ifdef __GLASGOW_HASKELL__
@@ -129,7 +114,7 @@ The 'Int' argument specifies the CPU number; it is interpreted modulo
 rather than a CPU number, but to a first approximation the two are
 equivalent).
 -}
-forkOnIO ∷ Int → IO α → IO (ThreadId, Result α)
+forkOnIO ∷ Int → IO α → IO (ThreadId, Wait α)
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
 #endif
 
@@ -137,75 +122,34 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 
 -- | Internally used function which generalises 'forkIO', 'forkOS' and
 -- 'forkOnIO' by parameterizing the function which does the actual forking.
-fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, Result α))
+fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, Wait α))
 fork doFork = \a → do
   res ← newEmptyTMVarIO
   parentIsBlocked ← blocked
   tid ← block $ doFork $
     try (if parentIsBlocked then a else unblock a) >>=
       atomically ∘ putTMVar res
-  return (tid, Result res)
+  return (tid, atomically $ readTMVar res)
 
 
 --------------------------------------------------------------------------------
--- * Waiting for results
+-- Waiting for results
 --------------------------------------------------------------------------------
 
-{-|
-Block until the thread, to which the given 'Result' belongs, is terminated.
+-- | An IO computation that is returned from the various @fork@ functions. When
+-- performed, it waits for the forked thread to either throw an exception (which
+-- isn't catched) or return a value.
+type Wait α = IO (Either SomeException α)
 
-* Returns @'Right' x@ if the thread terminated normally and returned @x@.
+-- | Unsafely wait until the forked thread returns a value. When the forked
+-- thread throws an exception (which isn't catched) this exception is rethrown
+-- in the current thread.
+unsafeResult ∷ Wait α → IO α
+unsafeResult wait = wait >>= either throwInner return
 
-* Returns @'Left' e@ if some exception @e@ was thrown in the thread and wasn't
-caught.
--}
-wait ∷ Result α → IO (Either SomeException α)
-wait = atomically ∘ readTMVar ∘ unResult
-
--- | Like 'wait' but will ignore the value returned by the thread.
-wait_ ∷ Result α → IO ()
-wait_ = void ∘ wait
-
--- | Like 'wait' but will either rethrow the exception that was thrown in the
--- thread or return the value that was returned by the thread.
-unsafeWait ∷ Result α → IO α
-unsafeWait result = wait result >>= either throwInner return
-
--- | Like 'unsafeWait' in that it will rethrow the exception that was thrown in
--- the thread but it will ignore the value returned by the thread.
-unsafeWait_ ∷ Result α → IO ()
-unsafeWait_ result = wait result >>= either throwInner (const $ return ())
-
-
---------------------------------------------------------------------------------
--- * Quering results
---------------------------------------------------------------------------------
-
-{-|
-A non-blocking 'wait'.
-
-* Returns 'Nothing' if the thread is still running.
-
-* Returns @'Just' ('Right' x)@ if the thread terminated normally and returned @x@.
-
-* Returns @'Just' ('Left' e)@ if some exception @e@ was thrown in the thread and
-wasn't caught.
-
-Notice that this observation is only a snapshot of a thread's state. By the time
-a program reacts on its result it may already be out of date.
--}
-status ∷ Result α → IO (Maybe (Either SomeException α))
-status = atomically ∘ tryReadTMVar ∘ unResult
-
-{-|
-If the thread, to which the given 'Result' belongs, is currently running return
-'True' and return 'False' otherwise.
-
-Notice that this observation is only a snapshot of a thread's state. By the time
-a program reacts on its result it may already be out of date.
--}
-isRunning ∷ Result α → IO Bool
-isRunning = fmap isNothing ∘ status
+-- | Throw the exception stored inside the 'SomeException'.
+throwInner ∷ SomeException → IO α
+throwInner (SomeException e) = throwIO e
 
 
 -- The End ---------------------------------------------------------------------
