@@ -50,7 +50,7 @@ import Test.Framework ( Test, defaultMain, testGroup )
 import Test.Framework.Providers.HUnit ( testCase )
 
 -- from threads:
-import Control.Concurrent.Thread       ( Wait, unsafeResult )
+import Control.Concurrent.Thread       ( Result, unsafeResult )
 import Control.Concurrent.Thread.Group ( ThreadGroup )
 
 import qualified Control.Concurrent.Thread       as Thread
@@ -135,7 +135,7 @@ a_moment = 5000
 -- General properties
 --------------------------------------------------------------------------------
 
-type Fork α = IO α → IO (ThreadId, Wait α)
+type Fork α = IO α → IO (ThreadId, IO (Result α))
 
 test_wait ∷ Fork () → Assertion
 test_wait fork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
@@ -148,18 +148,18 @@ test_wait fork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
 
 test_blockedState ∷ Fork Bool → Assertion
 test_blockedState fork = do (_, wait) ← block $ fork $ blocked
-                            unsafeResult wait >>= assert
+                            wait >>= unsafeResult >>= assert
 
 test_unblockedState ∷ Fork Bool → Assertion
 test_unblockedState fork = do (_, wait) ← unblock $ fork $ not <$> blocked
-                              unsafeResult wait >>= assert
+                              wait >>= unsafeResult >>= assert
 
 test_sync_exception ∷ Fork () → Assertion
 test_sync_exception fork = assert $ do
   (_, wait) ← fork $ throwIO MyException
   waitForException MyException wait
 
-waitForException ∷ (Exception e, Eq e) ⇒ e → Wait α → IO Bool
+waitForException ∷ (Exception e, Eq e) ⇒ e → IO (Result α) → IO Bool
 waitForException e wait = wait <$$> either (justEq e ∘ fromException)
                                            (const False)
 

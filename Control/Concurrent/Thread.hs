@@ -28,8 +28,8 @@ module Control.Concurrent.Thread
   , forkOnIO
 #endif
 
-    -- * Waiting for results
-  , Wait
+    -- * Results
+  , Result
   , unsafeResult
   ) where
 
@@ -69,7 +69,7 @@ import Control.Concurrent.STM       ( atomically )
 {-|
 Sparks off a new thread to run the given 'IO' computation and returns the
 'ThreadId' of the newly created thread paired with an IO computation that waits
-for the termination of the thread.
+for the result of the thread.
 
 The new thread will be a lightweight thread; if you want to use a foreign
 library that uses thread-local storage, use 'forkOS' instead.
@@ -77,13 +77,13 @@ library that uses thread-local storage, use 'forkOS' instead.
 GHC note: the new thread inherits the blocked state of the parent (see
 'Control.Exception.block').
 -}
-forkIO ∷ IO α → IO (ThreadId, Wait α)
+forkIO ∷ IO α → IO (ThreadId, IO (Result α))
 forkIO = fork Control.Concurrent.forkIO
 
 {-|
 Like 'forkIO', this sparks off a new thread to run the given 'IO' computation
 and returns the 'ThreadId' of the newly created thread paired with an IO
-computation that waits for the termination of the thread.
+computation that waits for the result of the thread.
 
 Unlike 'forkIO', 'forkOS' creates a /bound/ thread, which is necessary if you
 need to call foreign (non-Haskell) libraries that make use of thread-local
@@ -97,7 +97,7 @@ to be made without blocking all the Haskell threads (with GHC), it is only
 necessary to use the @-threaded@ option when linking your program, and to make
 sure the foreign import is not marked @unsafe@.
 -}
-forkOS ∷ IO α → IO (ThreadId, Wait α)
+forkOS ∷ IO α → IO (ThreadId, IO (Result α))
 forkOS = fork Control.Concurrent.forkOS
 
 #ifdef __GLASGOW_HASKELL__
@@ -114,7 +114,7 @@ The 'Int' argument specifies the CPU number; it is interpreted modulo
 rather than a CPU number, but to a first approximation the two are
 equivalent).
 -}
-forkOnIO ∷ Int → IO α → IO (ThreadId, Wait α)
+forkOnIO ∷ Int → IO α → IO (ThreadId, IO (Result α))
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
 #endif
 
@@ -122,7 +122,7 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 
 -- | Internally used function which generalises 'forkIO', 'forkOS' and
 -- 'forkOnIO' by parameterizing the function which does the actual forking.
-fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, Wait α))
+fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, IO (Result α)))
 fork doFork = \a → do
   res ← newEmptyTMVarIO
   parentIsBlocked ← blocked
@@ -133,19 +133,17 @@ fork doFork = \a → do
 
 
 --------------------------------------------------------------------------------
--- Waiting for results
+-- Results
 --------------------------------------------------------------------------------
 
--- | An IO computation that is returned from the various @fork@ functions. When
--- performed, it waits for the forked thread to either throw an exception (which
--- isn't catched) or return a value.
-type Wait α = IO (Either SomeException α)
+-- | A result of a thread is either some exception that was thrown in the thread
+-- and wasn't catched or an actual value.
+type Result α = Either SomeException α
 
--- | Unsafely wait until the forked thread returns a value. When the forked
--- thread throws an exception (which isn't catched) this exception is rethrown
--- in the current thread.
-unsafeResult ∷ Wait α → IO α
-unsafeResult wait = wait >>= either throwInner return
+-- | Unsafely retrieve the actual value from the result. When the result is some
+-- exception the exception is rethrown in the current thread.
+unsafeResult ∷ Result α → IO α
+unsafeResult = either throwInner return
 
 -- | Throw the exception stored inside the 'SomeException'.
 throwInner ∷ SomeException → IO α

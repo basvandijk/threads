@@ -75,7 +75,7 @@ import Control.Concurrent.STM.TMVar     ( newEmptyTMVarIO, putTMVar, readTMVar )
 import Control.Concurrent.STM           ( STM, atomically, retry )
 
 -- from threads:
-import Control.Concurrent.Thread ( Wait )
+import Control.Concurrent.Thread ( Result )
 
 #ifdef __HADDOCK__
 import qualified Control.Concurrent.Thread as Thread ( forkIO
@@ -118,18 +118,18 @@ new = atomically $ fmap ThreadGroup $ newTVar 0
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkIO'@ but additionaly adds
 -- the thread to the group.
-forkIO ∷ ThreadGroup → IO α → IO (ThreadId, Wait α)
+forkIO ∷ ThreadGroup → IO α → IO (ThreadId, IO (Result α))
 forkIO = fork Control.Concurrent.forkIO
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOS'@ but additionaly adds
 -- the thread to the group.
-forkOS ∷ ThreadGroup → IO α → IO (ThreadId, Wait α)
+forkOS ∷ ThreadGroup → IO α → IO (ThreadId, IO (Result α))
 forkOS = fork Control.Concurrent.forkOS
 
 #ifdef __GLASGOW_HASKELL__
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOnIO'@ but
 -- additionaly adds the thread to the group. (GHC only)
-forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId, Wait α)
+forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
 #endif
 
@@ -137,7 +137,7 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 
 -- | Internally used function which generalises 'forkIO', 'forkOS' and
 -- 'forkOnIO' by parameterizing the function which does the actual forking.
-fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, Wait α)
+fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
 fork doFork (ThreadGroup numThreadsTV) a = do
   res ← newEmptyTMVarIO
   parentIsBlocked ← blocked
