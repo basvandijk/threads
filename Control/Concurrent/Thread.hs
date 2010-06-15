@@ -41,6 +41,7 @@ module Control.Concurrent.Thread
 -- from base:
 import qualified Control.Concurrent ( forkIO, forkOS )
 import Control.Concurrent           ( ThreadId )
+import Control.Concurrent.MVar      ( newEmptyMVar, putMVar, readMVar )
 import Control.Exception            ( SomeException(SomeException)
                                     , blocked, block, unblock, try, throwIO
                                     )
@@ -56,10 +57,6 @@ import Data.Int                     ( Int )
 
 -- from base-unicode-symbols:
 import Data.Function.Unicode        ( (∘) )
-
--- from stm:
-import Control.Concurrent.STM.TMVar ( newEmptyTMVarIO, putTMVar, readTMVar )
-import Control.Concurrent.STM       ( atomically )
 
 
 --------------------------------------------------------------------------------
@@ -124,12 +121,11 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 -- 'forkOnIO' by parameterizing the function which does the actual forking.
 fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, IO (Result α)))
 fork doFork = \a → do
-  res ← newEmptyTMVarIO
+  res ← newEmptyMVar
   parentIsBlocked ← blocked
   tid ← block $ doFork $
-    try (if parentIsBlocked then a else unblock a) >>=
-      atomically ∘ putTMVar res
-  return (tid, atomically $ readTMVar res)
+    try (if parentIsBlocked then a else unblock a) >>= putMVar res
+  return (tid, readMVar res)
 
 
 --------------------------------------------------------------------------------

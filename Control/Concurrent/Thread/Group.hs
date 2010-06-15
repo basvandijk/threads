@@ -51,6 +51,7 @@ module Control.Concurrent.Thread.Group
 -- from base:
 import qualified Control.Concurrent     ( forkIO, forkOS )
 import Control.Concurrent               ( ThreadId )
+import Control.Concurrent.MVar          ( newEmptyMVar, putMVar, readMVar )
 import Control.Exception                ( blocked, block, unblock, try )
 import Control.Monad                    ( return, (>>=), (>>), fail, when )
 import Data.Bool                        ( Bool(..) )
@@ -71,7 +72,6 @@ import Data.Function.Unicode            ( (∘) )
 
 -- from stm:
 import Control.Concurrent.STM.TVar      ( TVar, newTVar, readTVar, writeTVar )
-import Control.Concurrent.STM.TMVar     ( newEmptyTMVarIO, putTMVar, readTMVar )
 import Control.Concurrent.STM           ( STM, atomically, retry )
 
 -- from threads:
@@ -139,14 +139,14 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 -- 'forkOnIO' by parameterizing the function which does the actual forking.
 fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
 fork doFork (ThreadGroup numThreadsTV) a = do
-  res ← newEmptyTMVarIO
+  res ← newEmptyMVar
   parentIsBlocked ← blocked
   tid ← block $ do
     atomically $ modifyTVar numThreadsTV succ
     doFork $ do
-      r ← try $ if parentIsBlocked then a else unblock a
-      atomically $ modifyTVar numThreadsTV pred >> putTMVar res r
-  return (tid, atomically $ readTMVar res)
+      try (if parentIsBlocked then a else unblock a) >>= putMVar res
+      atomically $ modifyTVar numThreadsTV pred
+  return (tid, readMVar res)
 
 -- | Strictly modify the contents of a 'TVar'.
 modifyTVar ∷ TVar α → (α → α) → STM ()
