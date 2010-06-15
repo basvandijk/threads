@@ -18,6 +18,19 @@
 -- import qualified Control.Concurrent.Thread as Thread ( ... )
 -- @
 --
+-- The following is an example how to use this module:
+--
+-- @
+--
+-- import qualified Control.Concurrent.Thread as Thread ( 'forkIO', 'unsafeResult' )
+--
+-- main = do (tid, wait) <- Thread.'forkIO' $ do x <- someExpensiveComputation
+--                                            return x
+--          doSomethingElse
+--          x <- Thread.'unsafeResult' =<< 'wait'
+--          doSomethingWithResult x
+-- @
+--
 --------------------------------------------------------------------------------
 
 module Control.Concurrent.Thread
@@ -133,11 +146,14 @@ fork doFork = \a → do
 --------------------------------------------------------------------------------
 
 -- | A result of a thread is either some exception that was thrown in the thread
--- and wasn't catched or an actual value.
+-- and wasn't catched or the actual value that was returned by the thread.
 type Result α = Either SomeException α
 
--- | Unsafely retrieve the actual value from the result. When the result is some
--- exception the exception is rethrown in the current thread.
+{-| Unsafely retrieve the actual value from the result.
+
+When the result is 'SomeException' the exception stored inside of the
+'SomeException' is rethrown in the current thread.
+-}
 unsafeResult ∷ Result α → IO α
 unsafeResult = either throwInner return
 

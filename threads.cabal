@@ -13,8 +13,7 @@ license-file:  LICENSE
 category:      Concurrency
 synopsis:      Fork threads and wait for their result
 description:   This package provides functions to fork threads and
-               wait for their termination. The result of a thread can
-               also be retrieved, whether it's an exception or a
+               wait for their result, whether it's an exception or a
                normal value.
                .
                Besides waiting for the termination of a single thread
