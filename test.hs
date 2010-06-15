@@ -17,7 +17,7 @@ import Control.Exception  ( Exception, fromException
                           , throwIO
                           , unblock, block, blocked
                           )
-import Control.Monad      ( return, (>>=), fail, (>>) )
+import Control.Monad      ( return, (>>=), fail, (>>), replicateM_ )
 import Data.Bool          ( Bool(False, True), not )
 import Data.Eq            ( Eq )
 import Data.Either        ( either )
@@ -39,6 +39,9 @@ import Data.Function.Unicode ( (∘) )
 
 -- from concurrent-extra:
 import qualified Control.Concurrent.Lock as Lock
+
+-- from stm:
+import Control.Concurrent.STM ( atomically )
 
 -- from HUnit:
 import Test.HUnit ( Assertion, assert )
@@ -92,35 +95,35 @@ tests = [ testGroup "Thread" $
           ]
         , testGroup "ThreadGroup" $
           [ testGroup "forkIO" $
-            [ testCase "wait"            $ wrapIO test_wait
-            , testCase "blockedState"    $ wrapIO test_blockedState
-            , testCase "unblockedState"  $ wrapIO test_unblockedState
-            , testCase "sync exception"  $ wrapIO test_sync_exception
-            , testCase "async exception" $ wrapIO test_async_exception
+            [ testCase "wait"              $ wrapIO test_wait
+            , testCase "blockedState"      $ wrapIO test_blockedState
+            , testCase "unblockedState"    $ wrapIO test_unblockedState
+            , testCase "sync exception"    $ wrapIO test_sync_exception
+            , testCase "async exception"   $ wrapIO test_async_exception
 
-            , testCase "group single wait"      $ test_group_single_wait      ThreadGroup.forkIO
-            , testCase "group single isRunning" $ test_group_single_isRunning ThreadGroup.forkIO
+            , testCase "group single wait" $ test_group_single_wait ThreadGroup.forkIO
+            , testCase "group nrOfRunning" $ test_group_nrOfRunning ThreadGroup.forkIO
             ]
           , testGroup "forkOS" $
-            [ testCase "wait"            $ wrapOS test_wait
-            , testCase "blockedState"    $ wrapOS test_blockedState
-            , testCase "unblockedState"  $ wrapOS test_unblockedState
-            , testCase "sync exception"  $ wrapOS test_sync_exception
-            , testCase "async exception" $ wrapOS test_async_exception
+            [ testCase "wait"              $ wrapOS test_wait
+            , testCase "blockedState"      $ wrapOS test_blockedState
+            , testCase "unblockedState"    $ wrapOS test_unblockedState
+            , testCase "sync exception"    $ wrapOS test_sync_exception
+            , testCase "async exception"   $ wrapOS test_async_exception
 
-            , testCase "group single wait"      $ test_group_single_wait      ThreadGroup.forkOS
-            , testCase "group single isRunning" $ test_group_single_isRunning ThreadGroup.forkOS
+            , testCase "group single wait" $ test_group_single_wait ThreadGroup.forkOS
+            , testCase "group nrOfRunning" $ test_group_nrOfRunning ThreadGroup.forkOS
             ]
 #ifdef __GLASGOW_HASKELL__
           , testGroup "forkOnIO 0" $
-            [ testCase "wait"            $ wrapOnIO_0 test_wait
-            , testCase "blockedState"    $ wrapOnIO_0 test_blockedState
-            , testCase "unblockedState"  $ wrapOnIO_0 test_unblockedState
-            , testCase "sync exception"  $ wrapOnIO_0 test_sync_exception
-            , testCase "async exception" $ wrapOnIO_0 test_async_exception
+            [ testCase "wait"              $ wrapOnIO_0 test_wait
+            , testCase "blockedState"      $ wrapOnIO_0 test_blockedState
+            , testCase "unblockedState"    $ wrapOnIO_0 test_unblockedState
+            , testCase "sync exception"    $ wrapOnIO_0 test_sync_exception
+            , testCase "async exception"   $ wrapOnIO_0 test_async_exception
 
-            , testCase "group single wait"      $ test_group_single_wait      (ThreadGroup.forkOnIO 0)
-            , testCase "group single isRunning" $ test_group_single_isRunning (ThreadGroup.forkOnIO 0)
+            , testCase "group single wait" $ test_group_single_wait (ThreadGroup.forkOnIO 0)
+            , testCase "group nrOfRunning" $ test_group_nrOfRunning (ThreadGroup.forkOnIO 0)
             ]
 #endif
           ]
@@ -209,14 +212,18 @@ test_group_single_wait doFork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_mom
   _ ← ThreadGroup.wait tg
   readIORef r
 
-test_group_single_isRunning ∷ (ThreadGroup → Fork ()) → Assertion
-test_group_single_isRunning doFork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
+test_group_nrOfRunning ∷ (ThreadGroup → Fork ()) → Assertion
+test_group_nrOfRunning doFork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
   tg ← ThreadGroup.new
   l ← Lock.newAcquired
-  _ ← doFork tg $ Lock.acquire l
-  r ← ThreadGroup.isAnyRunning tg
+  replicateM_ (fromInteger n) $ doFork tg $ Lock.acquire l
+  true ← fmap (≡ n) $ atomically $ ThreadGroup.nrOfRunning tg
   Lock.release l
-  return r
+  return true
+    where
+      -- Don't set this number too big otherwise forkOS might throw an exception
+      -- indicating that too many OS threads have been created:
+      n = 100
 
 
 --------------------------------------------------------------------------------

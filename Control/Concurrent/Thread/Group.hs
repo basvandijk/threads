@@ -30,6 +30,7 @@ module Control.Concurrent.Thread.Group
     ( -- * Groups of threads
       ThreadGroup
     , new
+    , nrOfRunning
 
       -- * Forking threads
     , forkIO
@@ -38,9 +39,8 @@ module Control.Concurrent.Thread.Group
     , forkOnIO
 #endif
 
-      -- * Waiting & Status
+      -- * Waiting
     , wait
-    , isAnyRunning
     ) where
 
 
@@ -54,7 +54,6 @@ import Control.Concurrent               ( ThreadId )
 import Control.Concurrent.MVar          ( newEmptyMVar, putMVar, readMVar )
 import Control.Exception                ( blocked, block, unblock, try )
 import Control.Monad                    ( return, (>>=), (>>), fail, when )
-import Data.Bool                        ( Bool(..) )
 import Data.Function                    ( ($) )
 import Data.Functor                     ( fmap )
 import Data.Typeable                    ( Typeable )
@@ -103,6 +102,8 @@ More formally a @ThreadGroup@ has the following semantics:
 * When a forked thread terminates, whether normally or by raising an exception,
   the counter is decremented.
 
+* 'nrOfRunning' yields a transaction that returns the counter.
+
 * 'wait' blocks as long as the counter is not 0.
 -}
 newtype ThreadGroup = ThreadGroup (TVar Integer) deriving Typeable
@@ -110,6 +111,15 @@ newtype ThreadGroup = ThreadGroup (TVar Integer) deriving Typeable
 -- | Create an empty group of threads.
 new ∷ IO ThreadGroup
 new = atomically $ fmap ThreadGroup $ newTVar 0
+
+{-| Yield a transaction that returns the number of running threads in the
+group.
+
+Note that because this function yields a 'STM' computation, the returned number
+is guaranteed to be consistent inside the transaction.
+-}
+nrOfRunning ∷ ThreadGroup → STM Integer
+nrOfRunning (ThreadGroup numThreadsTV) = readTVar numThreadsTV
 
 
 --------------------------------------------------------------------------------
@@ -158,25 +168,13 @@ f ∘! g = \x → f $! g x
 
 
 --------------------------------------------------------------------------------
--- * Waiting & Status
+-- * Waiting
 --------------------------------------------------------------------------------
 
--- | Block until all threads, that were added to the group have terminated.
+-- | Convenience function which blocks until all threads, that were added to the
+-- group have terminated.
 wait ∷ ThreadGroup → IO ()
-wait (ThreadGroup numThreadsTV) = atomically $ do
-                                    numThreads ← readTVar numThreadsTV
-                                    when (numThreads ≢ 0) retry
-
-{-|
-Returns 'True' if any thread in the group is running and returns 'False'
-otherwise.
-
-Notice that this observation is only a snapshot of a group's state. By the time
-a program reacts on its result it may already be out of date.
--}
-isAnyRunning ∷ ThreadGroup → IO Bool
-isAnyRunning (ThreadGroup numThreadsTV) = atomically $
-                                            fmap (≢ 0) $ readTVar numThreadsTV
+wait tg = atomically $ nrOfRunning tg >>= \n → when (n ≢ 0) retry
 
 
 -- The End ---------------------------------------------------------------------
