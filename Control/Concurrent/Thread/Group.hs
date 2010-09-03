@@ -70,7 +70,7 @@ import Data.Eq.Unicode                  ( (≢) )
 import Data.Function.Unicode            ( (∘) )
 
 -- from stm:
-import Control.Concurrent.STM.TVar      ( TVar, newTVar, readTVar, writeTVar )
+import Control.Concurrent.STM.TVar      ( TVar, newTVarIO, readTVar, writeTVar )
 import Control.Concurrent.STM           ( STM, atomically, retry )
 
 -- from threads:
@@ -110,7 +110,7 @@ newtype ThreadGroup = ThreadGroup (TVar Integer) deriving Typeable
 
 -- | Create an empty group of threads.
 new ∷ IO ThreadGroup
-new = atomically $ fmap ThreadGroup $ newTVar 0
+new = fmap ThreadGroup $ newTVarIO 0
 
 {-| Yield a transaction that returns the number of running threads in the
 group.
