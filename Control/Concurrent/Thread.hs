@@ -55,7 +55,7 @@ module Control.Concurrent.Thread
 import qualified Control.Concurrent ( forkIO, forkOS )
 import Control.Concurrent           ( ThreadId )
 import Control.Concurrent.MVar      ( newEmptyMVar, putMVar, readMVar )
-import Control.Exception            ( SomeException(SomeException)
+import Control.Exception            ( SomeException
                                     , blocked, block, unblock, try, throwIO
                                     )
 import Control.Monad                ( return, (>>=), fail )
@@ -151,15 +151,10 @@ type Result α = Either SomeException α
 
 {-| Unsafely retrieve the actual value from the result.
 
-When the result is 'SomeException' the exception stored inside of the
-'SomeException' is rethrown in the current thread.
+When the result is 'SomeException' the exception is thrown.
 -}
 unsafeResult ∷ Result α → IO α
-unsafeResult = either throwInner return
-
--- | Throw the exception stored inside the 'SomeException'.
-throwInner ∷ SomeException → IO α
-throwInner (SomeException e) = throwIO e
+unsafeResult = either throwIO return
 
 
 -- The End ---------------------------------------------------------------------
