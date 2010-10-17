@@ -20,8 +20,9 @@ description:   This package provides functions to fork threads and
                this packages also provides functions to wait for a
                group of threads to terminate.
                .
-               This package is similar to the @threadmanager@
-               and @async@ packages. The advantages of this package are:
+               This package is similar to the
+	       @threadmanager@, @async@ and @spawn@ packages.
+	       The advantages of this package are:
                .
                * Simpler API.
                .
