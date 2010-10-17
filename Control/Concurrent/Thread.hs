@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP, NoImplicitPrelude, UnicodeSyntax #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- For block and unblock
 
 --------------------------------------------------------------------------------
 -- |
@@ -39,8 +40,10 @@ module Control.Concurrent.Thread
   , forkOS
 #ifdef __GLASGOW_HASKELL__
   , forkOnIO
+#if MIN_VERSION_base(4,3,0)
+  , forkIOUnmasked
 #endif
-
+#endif
     -- * Results
   , Result
   , unsafeResult
@@ -55,9 +58,10 @@ module Control.Concurrent.Thread
 import qualified Control.Concurrent ( forkIO, forkOS )
 import Control.Concurrent           ( ThreadId )
 import Control.Concurrent.MVar      ( newEmptyMVar, putMVar, readMVar )
-import Control.Exception            ( SomeException
-                                    , blocked, block, unblock, try, throwIO
-                                    )
+import Control.Exception            ( SomeException, try, throwIO )
+#if MIN_VERSION_base(4,3,0)
+import Control.Exception            ( block, unblock )
+#endif
 import Control.Monad                ( return, (>>=), fail )
 import Data.Either                  ( Either(..), either )
 import Data.Function                ( ($) )
@@ -70,6 +74,9 @@ import Data.Int                     ( Int )
 
 -- from base-unicode-symbols:
 import Data.Function.Unicode        ( (∘) )
+
+-- from ourselves:
+import Mask                         ( mask )
 
 
 --------------------------------------------------------------------------------
@@ -126,6 +133,16 @@ equivalent).
 -}
 forkOnIO ∷ Int → IO α → IO (ThreadId, IO (Result α))
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
+
+#if MIN_VERSION_base(4,3,0)
+-- | Like 'forkIO', but the child thread is created with asynchronous exceptions
+-- unmasked (see 'Control.Exception.mask').
+forkIOUnmasked ∷ IO α → IO (ThreadId, IO (Result α))
+forkIOUnmasked a = do
+  res ← newEmptyMVar
+  tid ← block $ Control.Concurrent.forkIO $ try (unblock a) >>= putMVar res
+  return (tid, readMVar res)
+#endif
 #endif
 
 --------------------------------------------------------------------------------
@@ -135,9 +152,7 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, IO (Result α)))
 fork doFork = \a → do
   res ← newEmptyMVar
-  parentIsBlocked ← blocked
-  tid ← block $ doFork $
-    try (if parentIsBlocked then a else unblock a) >>= putMVar res
+  tid ← mask $ \restore → doFork $ try (restore a) >>= putMVar res
   return (tid, readMVar res)
 
 

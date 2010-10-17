@@ -1,5 +1,5 @@
 name:          threads
-version:       0.3.0.1
+version:       0.3.1
 cabal-version: >= 1.6
 build-type:    Custom
 stability:     experimental
@@ -32,7 +32,7 @@ description:   This package provides functions to fork threads and
                .
                * Correct handling of asynchronous exceptions.
                .
-               * GHC specific functionality like @forkOnIO@.
+               * GHC specific functionality like @forkOnIO@ and @forkIOUnmasked@.
 
 source-repository head
   Type: darcs
@@ -51,11 +51,12 @@ flag hpc
 -------------------------------------------------------------------------------
 
 library
-  build-depends: base                 >= 3     && < 4.3
+  build-depends: base                 >= 3     && < 4.4
                , base-unicode-symbols >= 0.1.1 && < 0.3
                , stm                  >= 2.1   && < 2.2
   exposed-modules: Control.Concurrent.Thread
                  , Control.Concurrent.Thread.Group
+  other-modules: Mask
   ghc-options: -Wall
 
 -------------------------------------------------------------------------------

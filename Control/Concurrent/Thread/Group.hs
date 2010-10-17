@@ -3,6 +3,7 @@
            , NoImplicitPrelude
            , UnicodeSyntax
   #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- For block and unblock
 
 --------------------------------------------------------------------------------
 -- |
@@ -37,6 +38,9 @@ module Control.Concurrent.Thread.Group
     , forkOS
 #ifdef __GLASGOW_HASKELL__
     , forkOnIO
+#if MIN_VERSION_base(4,3,0)
+    , forkIOUnmasked
+#endif
 #endif
 
       -- * Waiting
@@ -52,7 +56,10 @@ module Control.Concurrent.Thread.Group
 import qualified Control.Concurrent     ( forkIO, forkOS )
 import Control.Concurrent               ( ThreadId )
 import Control.Concurrent.MVar          ( newEmptyMVar, putMVar, readMVar )
-import Control.Exception                ( blocked, block, unblock, try )
+import Control.Exception                ( try )
+#if MIN_VERSION_base(4,3,0)
+import Control.Exception                ( block, unblock )
+#endif
 import Control.Monad                    ( return, (>>=), (>>), fail, when )
 import Data.Function                    ( ($) )
 import Data.Functor                     ( fmap )
@@ -74,16 +81,22 @@ import Control.Concurrent.STM.TVar      ( TVar, newTVarIO, readTVar, writeTVar )
 import Control.Concurrent.STM           ( STM, atomically, retry )
 
 -- from threads:
-import Control.Concurrent.Thread ( Result )
+import Control.Concurrent.Thread        ( Result )
 
 #ifdef __HADDOCK__
 import qualified Control.Concurrent.Thread as Thread ( forkIO
                                                      , forkOS
 #ifdef __GLASGOW_HASKELL__
                                                      , forkOnIO
+#if MIN_VERSION_base(4,3,0)
+                                                     , forkIOUnmasked
+#endif
 #endif
                                                      )
 #endif
+
+-- from ourselves:
+import Mask                             ( mask )
 
 
 --------------------------------------------------------------------------------
@@ -141,6 +154,20 @@ forkOS = fork Control.Concurrent.forkOS
 -- additionaly adds the thread to the group. (GHC only)
 forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
 forkOnIO = fork ∘ GHC.Conc.forkOnIO
+
+#if MIN_VERSION_base(4,3,0)
+-- | Same as @Control.Concurrent.Thread.'Thread.forkIOUnmasked'@ but
+-- additionaly adds the thread to the group. (GHC only)
+forkIOUnmasked ∷ ThreadGroup → IO α → IO (ThreadId, IO (Result α))
+forkIOUnmasked (ThreadGroup numThreadsTV) a = do
+  res ← newEmptyMVar
+  tid ← block $ do
+    atomically $ modifyTVar numThreadsTV succ
+    Control.Concurrent.forkIO $ do
+      try (unblock a) >>= putMVar res
+      atomically $ modifyTVar numThreadsTV pred
+  return (tid, readMVar res)
+#endif
 #endif
 
 --------------------------------------------------------------------------------
@@ -150,11 +177,10 @@ forkOnIO = fork ∘ GHC.Conc.forkOnIO
 fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
 fork doFork (ThreadGroup numThreadsTV) a = do
   res ← newEmptyMVar
-  parentIsBlocked ← blocked
-  tid ← block $ do
+  tid ← mask $ \restore → do
     atomically $ modifyTVar numThreadsTV succ
     doFork $ do
-      try (if parentIsBlocked then a else unblock a) >>= putMVar res
+      try (restore a) >>= putMVar res
       atomically $ modifyTVar numThreadsTV pred
   return (tid, readMVar res)
 
