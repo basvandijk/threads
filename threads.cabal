@@ -53,7 +53,7 @@ flag hpc
 library
   build-depends: base                 >= 3     && < 4.4
                , base-unicode-symbols >= 0.1.1 && < 0.3
-               , stm                  >= 2.1   && < 2.2
+               , stm                  >= 2.1   && < 2.3
   exposed-modules: Control.Concurrent.Thread
                  , Control.Concurrent.Thread.Group
   other-modules: Mask
@@ -67,10 +67,10 @@ executable test-threads
   ghc-options: -Wall -threaded
 
   if flag(test)
-    build-depends: base                       >= 3     && < 4.3
+    build-depends: base                       >= 3     && < 4.4
                  , base-unicode-symbols       >= 0.1.1 && < 0.3
-                 , stm                        >= 2.1   && < 2.2
-                 , concurrent-extra           >= 0.5.1 && < 0.6
+                 , stm                        >= 2.1   && < 2.3
+                 , concurrent-extra           >= 0.5.1 && < 0.7
                  , HUnit                      >= 1.2.2 && < 1.3
                  , test-framework             >= 0.2.4 && < 0.4
                  , test-framework-hunit       >= 0.2.4 && < 0.3
