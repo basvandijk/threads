@@ -60,12 +60,17 @@ import Control.Exception                ( try )
 #if MIN_VERSION_base(4,3,0)
 import Control.Exception                ( block, unblock )
 #endif
-import Control.Monad                    ( return, (>>=), (>>), fail, when )
+import Control.Monad                    ( return, (>>=), when )
 import Data.Function                    ( ($) )
 import Data.Functor                     ( fmap )
 import Data.Typeable                    ( Typeable )
-import Prelude                          ( ($!), Integer, fromInteger, succ, pred )
+import Prelude                          ( ($!), Integer, succ, pred )
 import System.IO                        ( IO )
+
+#if __GLASGOW_HASKELL__ < 701
+import Prelude                          ( fromInteger )
+import Control.Monad                    ( (>>), fail )
+#endif
 
 #ifdef __GLASGOW_HASKELL__
 import qualified GHC.Conc               ( forkOnIO )

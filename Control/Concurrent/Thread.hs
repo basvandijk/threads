@@ -62,10 +62,14 @@ import Control.Exception            ( SomeException, try, throwIO )
 #if MIN_VERSION_base(4,3,0)
 import Control.Exception            ( block, unblock )
 #endif
-import Control.Monad                ( return, (>>=), fail )
+import Control.Monad                ( return, (>>=) )
 import Data.Either                  ( Either(..), either )
 import Data.Function                ( ($) )
 import System.IO                    ( IO )
+
+#if __GLASGOW_HASKELL__ < 701
+import Control.Monad                ( fail )
+#endif
 
 #ifdef __GLASGOW_HASKELL__
 import qualified GHC.Conc           ( forkOnIO )
