@@ -26,12 +26,12 @@
 --
 -- @
 --
--- import qualified Control.Concurrent.Thread as Thread ( 'forkIO', 'unsafeResult' )
+-- import qualified Control.Concurrent.Thread as Thread ( 'forkIO', 'result' )
 --
 -- main = do (tid, wait) <- Thread.'forkIO' $ do x <- someExpensiveComputation
 --                                            return x
 --          doSomethingElse
---          x <- Thread.'unsafeResult' =<< 'wait'
+--          x <- Thread.'result' =<< 'wait'
 --          doSomethingWithResult x
 -- @
 --
@@ -49,7 +49,7 @@ module Control.Concurrent.Thread
 #endif
     -- * Results
   , Result
-  , unsafeResult
+  , result
   ) where
 
 
@@ -171,12 +171,12 @@ fork doFork = \a → do
 -- and wasn't catched or the actual value that was returned by the thread.
 type Result α = Either SomeException α
 
-{-| Unsafely retrieve the actual value from the result.
+{-| Retrieve the actual value from the result.
 
 When the result is 'SomeException' the exception is thrown.
 -}
-unsafeResult ∷ Result α → IO α
-unsafeResult = either throwIO return
+result ∷ Result α → IO α
+result = either throwIO return
 
 
 -- The End ---------------------------------------------------------------------
