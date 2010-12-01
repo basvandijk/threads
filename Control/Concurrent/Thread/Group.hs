@@ -66,6 +66,7 @@ import Control.Exception                ( block, unblock )
 import Control.Monad                    ( return, (>>=), when )
 import Data.Function                    ( ($) )
 import Data.Functor                     ( fmap )
+import Data.Eq                          ( Eq )
 import Data.Typeable                    ( Typeable )
 import Prelude                          ( ($!), Integer, succ, pred )
 import System.IO                        ( IO )
@@ -127,7 +128,7 @@ More formally a @ThreadGroup@ has the following semantics:
 
 * 'wait' blocks as long as the counter is not 0.
 -}
-newtype ThreadGroup = ThreadGroup (TVar Integer) deriving Typeable
+newtype ThreadGroup = ThreadGroup (TVar Integer) deriving (Eq, Typeable)
 
 -- | Create an empty group of threads.
 new ∷ IO ThreadGroup
