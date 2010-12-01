@@ -31,10 +31,10 @@
 --------------------------------------------------------------------------------
 
 module Control.Concurrent.Thread.Group
-    ( -- * Groups of threads
-      ThreadGroup
+    ( ThreadGroup
     , new
     , nrOfRunning
+    , wait
 
       -- * Forking threads
     , forkIO
@@ -45,9 +45,6 @@ module Control.Concurrent.Thread.Group
     , forkIOUnmasked
 #endif
 #endif
-
-      -- * Waiting
-    , wait
     ) where
 
 
@@ -143,6 +140,11 @@ is guaranteed to be consistent inside the transaction.
 nrOfRunning ∷ ThreadGroup → STM Integer
 nrOfRunning (ThreadGroup numThreadsTV) = readTVar numThreadsTV
 
+-- | Convenience function which blocks until all threads, that were added to the
+-- group have terminated.
+wait ∷ ThreadGroup → IO ()
+wait tg = atomically $ nrOfRunning tg >>= \n → when (n ≢ 0) retry
+
 
 --------------------------------------------------------------------------------
 -- * Forking threads
@@ -200,16 +202,6 @@ modifyTVar tv f = readTVar tv >>= writeTVar tv ∘! f
 -- | Strict function composition
 (∘!) ∷ (β → γ) → (α → β) → (α → γ)
 f ∘! g = \x → f $! g x
-
-
---------------------------------------------------------------------------------
--- * Waiting
---------------------------------------------------------------------------------
-
--- | Convenience function which blocks until all threads, that were added to the
--- group have terminated.
-wait ∷ ThreadGroup → IO ()
-wait tg = atomically $ nrOfRunning tg >>= \n → when (n ≢ 0) retry
 
 
 -- The End ---------------------------------------------------------------------
