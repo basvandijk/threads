@@ -1,5 +1,8 @@
 {-# LANGUAGE CPP, NoImplicitPrelude, UnicodeSyntax #-}
+
+#if MIN_VERSION_base(4,3,0)
 {-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- For block and unblock
+#endif
 
 --------------------------------------------------------------------------------
 -- |
