@@ -100,6 +100,14 @@ tests = [ testGroup "Thread" $
             , testCase "sync exception"  $ test_sync_exception  (Thread.forkOnIO 0)
             , testCase "async exception" $ test_async_exception (Thread.forkOnIO 0)
             ]
+#if MIN_VERSION_base(4,3,0)
+          , testGroup "forkIOUnmasked" $
+            [ testCase "wait"            $ test_wait            (Thread.forkIOUnmasked)
+            , testCase "unblockedState'" $ test_unblockedState' (Thread.forkIOUnmasked)
+            , testCase "sync exception"  $ test_sync_exception  (Thread.forkIOUnmasked)
+            , testCase "async exception" $ test_async_exception (Thread.forkIOUnmasked)
+            ]
+#endif
 #endif
           ]
         , testGroup "ThreadGroup" $
@@ -134,6 +142,17 @@ tests = [ testGroup "Thread" $
             , testCase "group single wait" $ test_group_single_wait (ThreadGroup.forkOnIO 0)
             , testCase "group nrOfRunning" $ test_group_nrOfRunning (ThreadGroup.forkOnIO 0)
             ]
+#if MIN_VERSION_base(4,3,0)
+          , testGroup "forkIOUnmasked" $
+            [ testCase "wait"              $ wrapIOUnmasked test_wait
+            , testCase "unblockedState'"   $ wrapIOUnmasked test_unblockedState'
+            , testCase "sync exception"    $ wrapIOUnmasked test_sync_exception
+            , testCase "async exception"   $ wrapIOUnmasked test_async_exception
+
+            , testCase "group single wait" $ test_group_single_wait ThreadGroup.forkIOUnmasked
+            , testCase "group nrOfRunning" $ test_group_nrOfRunning ThreadGroup.forkIOUnmasked
+            ]
+#endif
 #endif
           ]
         ]
@@ -165,6 +184,10 @@ test_blockedState fork = do (_, wait) ← block $ fork $ blocked
 test_unblockedState ∷ Fork Bool → Assertion
 test_unblockedState fork = do (_, wait) ← unblock $ fork $ not <$> blocked
                               wait >>= result >>= assert
+
+test_unblockedState' ∷ Fork Bool → Assertion
+test_unblockedState' fork = do (_, wait) ← block $ fork $ not <$> blocked
+                               wait >>= result >>= assert
 
 test_sync_exception ∷ Fork () → Assertion
 test_sync_exception fork = assert $ do
@@ -206,6 +229,11 @@ wrapOS = wrap ThreadGroup.forkOS
 #ifdef __GLASGOW_HASKELL__
 wrapOnIO_0 ∷ (Fork α → IO β) → IO β
 wrapOnIO_0 = wrap $ ThreadGroup.forkOnIO 0
+
+#if MIN_VERSION_base(4,3,0)
+wrapIOUnmasked ∷ (Fork α → IO β) → IO β
+wrapIOUnmasked = wrap ThreadGroup.forkIOUnmasked
+#endif
 #endif
 
 wrap ∷ (ThreadGroup → Fork α) → (Fork α → IO β) → IO β
