@@ -4,6 +4,10 @@
            , DeriveDataTypeable
  #-}
 
+#if MIN_VERSION_base(4,3,0)
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- For block and unblock
+#endif
+
 module Main where
 
 --------------------------------------------------------------------------------
@@ -17,7 +21,12 @@ import Control.Exception  ( Exception, fromException
                           , throwIO
                           , unblock, block, blocked
                           )
-import Control.Monad      ( return, (>>=), fail, (>>), replicateM_ )
+import Control.Monad      ( return, (>>=), replicateM_ )
+
+#if __GLASGOW_HASKELL__ < 701
+import Control.Monad      ( (>>), fail )
+#endif
+
 import Data.Bool          ( Bool(False, True), not )
 import Data.Eq            ( Eq )
 import Data.Either        ( either )
@@ -53,7 +62,7 @@ import Test.Framework ( Test, defaultMain, testGroup )
 import Test.Framework.Providers.HUnit ( testCase )
 
 -- from threads:
-import Control.Concurrent.Thread       ( Result, unsafeResult )
+import Control.Concurrent.Thread       ( Result, result )
 import Control.Concurrent.Thread.Group ( ThreadGroup )
 
 import qualified Control.Concurrent.Thread       as Thread
@@ -151,11 +160,11 @@ test_wait fork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
 
 test_blockedState ∷ Fork Bool → Assertion
 test_blockedState fork = do (_, wait) ← block $ fork $ blocked
-                            wait >>= unsafeResult >>= assert
+                            wait >>= result >>= assert
 
 test_unblockedState ∷ Fork Bool → Assertion
 test_unblockedState fork = do (_, wait) ← unblock $ fork $ not <$> blocked
-                              wait >>= unsafeResult >>= assert
+                              wait >>= result >>= assert
 
 test_sync_exception ∷ Fork () → Assertion
 test_sync_exception fork = assert $ do
