@@ -23,7 +23,7 @@ import Control.Exception  ( Exception, fromException
                           )
 import Control.Monad      ( return, (>>=), replicateM_ )
 
-#if __GLASGOW_HASKELL__ < 701
+#if __GLASGOW_HASKELL__ < 700
 import Control.Monad      ( (>>), fail )
 #endif
 

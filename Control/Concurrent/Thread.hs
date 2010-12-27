@@ -70,7 +70,7 @@ import Data.Either                  ( Either(..), either )
 import Data.Function                ( ($) )
 import System.IO                    ( IO )
 
-#if __GLASGOW_HASKELL__ < 701
+#if __GLASGOW_HASKELL__ < 700
 import Control.Monad                ( fail )
 #endif
 
