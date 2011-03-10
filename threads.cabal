@@ -1,6 +1,6 @@
 name:          threads
-version:       0.4
-cabal-version: >= 1.6
+version:       0.4.0.1
+cabal-version: >= 1.9.2
 build-type:    Custom
 stability:     experimental
 author:        Bas van Dijk <v.dijk.bas@gmail.com>
@@ -40,16 +40,6 @@ source-repository head
 
 -------------------------------------------------------------------------------
 
-flag test
-  description: Build the testing suite
-  default:     False
-
-flag hpc
-  description: Enable program coverage on test executable
-  default:     False
-
--------------------------------------------------------------------------------
-
 library
   build-depends: base                 >= 3     && < 4.4
                , base-unicode-symbols >= 0.1.1 && < 0.3
@@ -61,24 +51,18 @@ library
 
 -------------------------------------------------------------------------------
 
-executable test-threads
+test-suite test-threads
+  type:    exitcode-stdio-1.0
   main-is: test.hs
 
   ghc-options: -Wall -threaded
 
-  if flag(test)
-    build-depends: base                       >= 3     && < 4.4
-                 , base-unicode-symbols       >= 0.1.1 && < 0.3
-                 , stm                        >= 2.1   && < 2.3
-                 , concurrent-extra           >= 0.5.1 && < 0.7
-                 , HUnit                      >= 1.2.2 && < 1.3
-                 , test-framework             >= 0.2.4 && < 0.4
-                 , test-framework-hunit       >= 0.2.4 && < 0.3
-    buildable: True
-  else
-    buildable: False
-
-  if flag(hpc)
-    ghc-options: -fhpc
+  build-depends: base                       >= 3     && < 4.4
+               , base-unicode-symbols       >= 0.1.1 && < 0.3
+               , stm                        >= 2.1   && < 2.3
+               , concurrent-extra           >= 0.5.1 && < 0.7
+               , HUnit                      >= 1.2.2 && < 1.3
+               , test-framework             >= 0.2.4 && < 0.4
+               , test-framework-hunit       >= 0.2.4 && < 0.3
 
 -------------------------------------------------------------------------------
