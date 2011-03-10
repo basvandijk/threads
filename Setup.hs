@@ -10,11 +10,7 @@ module Main (main) where
 -------------------------------------------------------------------------------
 
 -- from base
-import Control.Monad       ( (>>), return )
-import Data.Bool           ( Bool )
-import System.Cmd          ( system )
-import System.FilePath     ( (</>) )
-import System.IO           ( IO )
+import System.IO ( IO )
 
 -- from cabal
 import Distribution.Simple ( defaultMainWithHooks
