@@ -35,8 +35,8 @@ description:   This package provides functions to fork threads and
                * GHC specific functionality like @forkOnIO@ and @forkIOUnmasked@.
 
 source-repository head
-  Type: darcs
-  Location: http://code.haskell.org/~basvandijk/code/threads
+  Type: git
+  Location: git://github.com/basvandijk/threads.git
 
 -------------------------------------------------------------------------------
 
