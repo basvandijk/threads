@@ -35,6 +35,8 @@ description:   This package provides functions to fork threads and
                .
                * GHC specific functionality like @forkOnIO@ and @forkIOUnmasked@.
 
+extra-source-files: README.markdown
+
 source-repository head
   Type: git
   Location: git://github.com/basvandijk/threads.git
