@@ -10,6 +10,7 @@ maintainer:    Bas van Dijk <v.dijk.bas@gmail.com>
 copyright:     (c) 2010 Bas van Dijk & Roel van Dijk
 license:       BSD3
 license-file:  LICENSE
+bug-reports:   https://github.com/basvandijk/threads/issues
 category:      Concurrency
 synopsis:      Fork threads and wait for their result
 description:   This package provides functions to fork threads and
