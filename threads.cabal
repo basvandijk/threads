@@ -10,6 +10,7 @@ maintainer:    Bas van Dijk <v.dijk.bas@gmail.com>
 copyright:     (c) 2010 Bas van Dijk & Roel van Dijk
 license:       BSD3
 license-file:  LICENSE
+homepage:      https://github.com/basvandijk/threads/
 bug-reports:   https://github.com/basvandijk/threads/issues
 category:      Concurrency
 synopsis:      Fork threads and wait for their result
@@ -44,7 +45,7 @@ source-repository head
 -------------------------------------------------------------------------------
 
 library
-  build-depends: base                 >= 3     && < 4.4
+  build-depends: base                 >= 3     && < 4.5
                , base-unicode-symbols >= 0.1.1 && < 0.3
                , stm                  >= 2.1   && < 2.3
   exposed-modules: Control.Concurrent.Thread
@@ -60,12 +61,12 @@ test-suite test-threads
 
   ghc-options: -Wall -threaded
 
-  build-depends: base                       >= 3     && < 4.4
+  build-depends: base                       >= 3     && < 4.5
                , base-unicode-symbols       >= 0.1.1 && < 0.3
                , stm                        >= 2.1   && < 2.3
-               , concurrent-extra           >= 0.5.1 && < 0.7
+               , concurrent-extra           >= 0.5.1 && < 0.8
                , HUnit                      >= 1.2.2 && < 1.3
-               , test-framework             >= 0.2.4 && < 0.4
+               , test-framework             >= 0.2.4 && < 0.5
                , test-framework-hunit       >= 0.2.4 && < 0.3
 
 -------------------------------------------------------------------------------
