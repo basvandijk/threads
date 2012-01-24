@@ -1,5 +1,5 @@
 name:          threads
-version:       0.4.0.1
+version:       0.4.0.2
 cabal-version: >= 1.9.2
 build-type:    Custom
 stability:     experimental
@@ -7,7 +7,7 @@ author:        Bas van Dijk <v.dijk.bas@gmail.com>
                Roel van Dijk <vandijk.roel@gmail.com>
 maintainer:    Bas van Dijk <v.dijk.bas@gmail.com>
                Roel van Dijk <vandijk.roel@gmail.com>
-copyright:     (c) 2010 Bas van Dijk & Roel van Dijk
+copyright:     2010–2012 Bas van Dijk & Roel van Dijk
 license:       BSD3
 license-file:  LICENSE
 homepage:      https://github.com/basvandijk/threads/
@@ -45,7 +45,7 @@ source-repository head
 -------------------------------------------------------------------------------
 
 library
-  build-depends: base                 >= 3     && < 4.5
+  build-depends: base                 >= 3     && < 4.6
                , base-unicode-symbols >= 0.1.1 && < 0.3
                , stm                  >= 2.1   && < 2.3
   exposed-modules: Control.Concurrent.Thread
@@ -61,7 +61,7 @@ test-suite test-threads
 
   ghc-options: -Wall -threaded
 
-  build-depends: base                       >= 3     && < 4.5
+  build-depends: base                       >= 3     && < 4.6
                , base-unicode-symbols       >= 0.1.1 && < 0.3
                , stm                        >= 2.1   && < 2.3
                , concurrent-extra           >= 0.5.1 && < 0.8
