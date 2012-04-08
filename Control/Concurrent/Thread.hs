@@ -1,18 +1,14 @@
-{-# LANGUAGE CPP, NoImplicitPrelude, UnicodeSyntax #-}
-
-#if MIN_VERSION_base(4,3,0)
-{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- For block and unblock
-#endif
+{-# LANGUAGE NoImplicitPrelude, UnicodeSyntax, RankNTypes #-}
 
 --------------------------------------------------------------------------------
 -- |
 -- Module     : Control.Concurrent.Thread
--- Copyright  : (c) 2010 Bas van Dijk & Roel van Dijk
+-- Copyright  : (c) 2010-2012 Bas van Dijk & Roel van Dijk
 -- License    : BSD3 (see the file LICENSE)
 -- Maintainer : Bas van Dijk <v.dijk.bas@gmail.com>
 --            , Roel van Dijk <vandijk.roel@gmail.com>
 --
--- Standard threads extended with the ability to wait for their termination.
+-- Standard threads extended with the ability to /wait/ for their return value.
 --
 -- This module exports equivalently named functions from @Control.Concurrent@
 -- (and @GHC.Conc@). Avoid ambiguities by importing this module qualified. May
@@ -41,12 +37,10 @@ module Control.Concurrent.Thread
   ( -- * Forking threads
     forkIO
   , forkOS
-#ifdef __GLASGOW_HASKELL__
-  , forkOnIO
-#if MIN_VERSION_base(4,3,0)
-  , forkIOUnmasked
-#endif
-#endif
+  , forkOn
+  , forkIOWithUnmask
+  , forkOnWithUnmask
+
     -- * Results
   , Result
   , result
@@ -58,108 +52,77 @@ module Control.Concurrent.Thread
 --------------------------------------------------------------------------------
 
 -- from base:
-import qualified Control.Concurrent ( forkIO, forkOS )
+import qualified Control.Concurrent ( forkIO
+                                    , forkOS
+                                    , forkOn
+                                    , forkIOWithUnmask
+                                    , forkOnWithUnmask
+                                    )
 import Control.Concurrent           ( ThreadId )
 import Control.Concurrent.MVar      ( newEmptyMVar, putMVar, readMVar )
-import Control.Exception            ( SomeException, try, throwIO )
-#if MIN_VERSION_base(4,3,0)
-import Control.Exception            ( block, unblock )
-#endif
+import Control.Exception            ( SomeException, try, throwIO, mask )
 import Control.Monad                ( return, (>>=) )
 import Data.Either                  ( Either(..), either )
 import Data.Function                ( ($) )
-import System.IO                    ( IO )
-
-#if __GLASGOW_HASKELL__ < 700
-import Control.Monad                ( fail )
-#endif
-
-#ifdef __GLASGOW_HASKELL__
-import qualified GHC.Conc           ( forkOnIO )
 import Data.Int                     ( Int )
-#endif
+import System.IO                    ( IO )
 
 -- from base-unicode-symbols:
 import Data.Function.Unicode        ( (∘) )
-
--- from ourselves:
-import Mask                         ( mask )
 
 
 --------------------------------------------------------------------------------
 -- * Forking threads
 --------------------------------------------------------------------------------
 
-{-|
-Sparks off a new thread to run the given 'IO' computation and returns the
-'ThreadId' of the newly created thread paired with an IO computation that waits
-for the result of the thread.
-
-The new thread will be a lightweight thread; if you want to use a foreign
-library that uses thread-local storage, use 'forkOS' instead.
-
-GHC note: the new thread inherits the blocked state of the parent (see
-'Control.Exception.block').
--}
+-- | Like @Control.Concurrent.'Control.Concurrent.forkIO'@ but returns
+-- a computation that when executed blocks until the thread terminates
+-- then returns the final value of the thread.
 forkIO ∷ IO α → IO (ThreadId, IO (Result α))
 forkIO = fork Control.Concurrent.forkIO
 
-{-|
-Like 'forkIO', this sparks off a new thread to run the given 'IO' computation
-and returns the 'ThreadId' of the newly created thread paired with an IO
-computation that waits for the result of the thread.
-
-Unlike 'forkIO', 'forkOS' creates a /bound/ thread, which is necessary if you
-need to call foreign (non-Haskell) libraries that make use of thread-local
-state, such as OpenGL (see 'Control.Concurrent').
-
-Using 'forkOS' instead of 'forkIO' makes no difference at all to the scheduling
-behaviour of the Haskell runtime system. It is a common misconception that you
-need to use 'forkOS' instead of 'forkIO' to avoid blocking all the Haskell
-threads when making a foreign call; this isn't the case. To allow foreign calls
-to be made without blocking all the Haskell threads (with GHC), it is only
-necessary to use the @-threaded@ option when linking your program, and to make
-sure the foreign import is not marked @unsafe@.
--}
+-- | Like @Control.Concurrent.'Control.Concurrent.forkOS'@ but returns
+-- a computation that when executed blocks until the thread terminates
+-- then returns the final value of the thread.
 forkOS ∷ IO α → IO (ThreadId, IO (Result α))
 forkOS = fork Control.Concurrent.forkOS
 
-#ifdef __GLASGOW_HASKELL__
-{-|
-Like 'forkIO', but lets you specify on which CPU the thread is
-created.  Unlike a 'forkIO' thread, a thread created by 'forkOnIO'
-will stay on the same CPU for its entire lifetime ('forkIO' threads
-can migrate between CPUs according to the scheduling policy).
-'forkOnIO' is useful for overriding the scheduling policy when you
-know in advance how best to distribute the threads.
+-- | Like @Control.Concurrent.'Control.Concurrent.forkOn'@ but returns
+-- a computation that when executed blocks until the thread terminates
+-- then returns the final value of the thread.
+forkOn ∷ Int → IO α → IO (ThreadId, IO (Result α))
+forkOn = fork ∘ Control.Concurrent.forkOn
 
-The 'Int' argument specifies the CPU number; it is interpreted modulo
-'numCapabilities' (note that it actually specifies a capability number
-rather than a CPU number, but to a first approximation the two are
-equivalent).
--}
-forkOnIO ∷ Int → IO α → IO (ThreadId, IO (Result α))
-forkOnIO = fork ∘ GHC.Conc.forkOnIO
+-- | Like @Control.Concurrent.'Control.Concurrent.forkIOWithUnmask'@ but returns
+-- a computation that when executed blocks until the thread terminates
+-- then returns the final value of the thread.
+forkIOWithUnmask ∷ ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
+forkIOWithUnmask = forkWithUnmask Control.Concurrent.forkIOWithUnmask
 
-#if MIN_VERSION_base(4,3,0)
--- | Like 'forkIO', but the child thread is created with asynchronous exceptions
--- unmasked (see 'Control.Exception.mask').
-forkIOUnmasked ∷ IO α → IO (ThreadId, IO (Result α))
-forkIOUnmasked a = do
-  res ← newEmptyMVar
-  tid ← block $ Control.Concurrent.forkIO $ try (unblock a) >>= putMVar res
-  return (tid, readMVar res)
-#endif
-#endif
+-- | Like @Control.Concurrent.'Control.Concurrent.forkOnWithUnmask'@ but returns
+-- a computation that when executed blocks until the thread terminates
+-- then returns the final value of the thread.
+forkOnWithUnmask ∷ Int → ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
+forkOnWithUnmask = forkWithUnmask ∘ Control.Concurrent.forkOnWithUnmask
+
 
 --------------------------------------------------------------------------------
+-- Utils
+--------------------------------------------------------------------------------
 
--- | Internally used function which generalises 'forkIO', 'forkOS' and
--- 'forkOnIO' by parameterizing the function which does the actual forking.
 fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, IO (Result α)))
 fork doFork = \a → do
   res ← newEmptyMVar
   tid ← mask $ \restore → doFork $ try (restore a) >>= putMVar res
+  return (tid, readMVar res)
+
+forkWithUnmask ∷ (((∀ β. IO β → IO β) → IO ()) → IO ThreadId)
+               →  ((∀ β. IO β → IO β) → IO α)  → IO (ThreadId, IO (Result α))
+forkWithUnmask doForkWithUnmask = \f → do
+  res ← newEmptyMVar
+  tid ← mask $ \restore →
+          doForkWithUnmask $ \unmask →
+            try (restore $ f unmask) >>= putMVar res
   return (tid, readMVar res)
 
 
@@ -171,12 +134,8 @@ fork doFork = \a → do
 -- and wasn't catched or the actual value that was returned by the thread.
 type Result α = Either SomeException α
 
-{-| Retrieve the actual value from the result.
-
-When the result is 'SomeException' the exception is thrown.
--}
+-- | Retrieve the actual value from the result.
+--
+-- When the result is 'SomeException' the exception is thrown.
 result ∷ Result α → IO α
 result = either throwIO return
-
-
--- The End ---------------------------------------------------------------------

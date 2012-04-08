@@ -2,16 +2,13 @@
            , DeriveDataTypeable
            , NoImplicitPrelude
            , UnicodeSyntax
+           , RankNTypes
   #-}
-
-#if MIN_VERSION_base(4,3,0)
-{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- For block and unblock
-#endif
 
 --------------------------------------------------------------------------------
 -- |
 -- Module     : Control.Concurrent.Thread.Group
--- Copyright  : (c) 2010 Bas van Dijk & Roel van Dijk
+-- Copyright  : (c) 2010-2012 Bas van Dijk & Roel van Dijk
 -- License    : BSD3 (see the file LICENSE)
 -- Maintainer : Bas van Dijk <v.dijk.bas@gmail.com>
 --            , Roel van Dijk <vandijk.roel@gmail.com>
@@ -39,12 +36,9 @@ module Control.Concurrent.Thread.Group
       -- * Forking threads
     , forkIO
     , forkOS
-#ifdef __GLASGOW_HASKELL__
-    , forkOnIO
-#if MIN_VERSION_base(4,3,0)
-    , forkIOUnmasked
-#endif
-#endif
+    , forkOn
+    , forkIOWithUnmask
+    , forkOnWithUnmask
     ) where
 
 
@@ -53,30 +47,23 @@ module Control.Concurrent.Thread.Group
 --------------------------------------------------------------------------------
 
 -- from base:
-import qualified Control.Concurrent     ( forkIO, forkOS )
+import qualified Control.Concurrent     ( forkIO
+                                        , forkOS
+                                        , forkOn
+                                        , forkIOWithUnmask
+                                        , forkOnWithUnmask
+                                        )
 import Control.Concurrent               ( ThreadId )
 import Control.Concurrent.MVar          ( newEmptyMVar, putMVar, readMVar )
-import Control.Exception                ( try )
-#if MIN_VERSION_base(4,3,0)
-import Control.Exception                ( block, unblock )
-#endif
+import Control.Exception                ( try, mask )
 import Control.Monad                    ( return, (>>=), when )
 import Data.Function                    ( ($) )
 import Data.Functor                     ( fmap )
 import Data.Eq                          ( Eq )
-import Data.Typeable                    ( Typeable )
-import Prelude                          ( ($!), Integer, succ, pred )
-import System.IO                        ( IO )
-
-#if __GLASGOW_HASKELL__ < 700
-import Prelude                          ( fromInteger )
-import Control.Monad                    ( (>>), fail )
-#endif
-
-#ifdef __GLASGOW_HASKELL__
-import qualified GHC.Conc               ( forkOnIO )
 import Data.Int                         ( Int )
-#endif
+import Data.Typeable                    ( Typeable )
+import Prelude                          ( ($!), (+), subtract )
+import System.IO                        ( IO )
 
 -- from base-unicode-symbols:
 import Data.Eq.Unicode                  ( (≢) )
@@ -92,17 +79,11 @@ import Control.Concurrent.Thread        ( Result )
 #ifdef __HADDOCK__
 import qualified Control.Concurrent.Thread as Thread ( forkIO
                                                      , forkOS
-#ifdef __GLASGOW_HASKELL__
-                                                     , forkOnIO
-#if MIN_VERSION_base(4,3,0)
-                                                     , forkIOUnmasked
-#endif
-#endif
+                                                     , forkOn
+                                                     , forkIOWithUnmask
+                                                     , forkOnWithUnmask
                                                      )
 #endif
-
--- from ourselves:
-import Mask                             ( mask )
 
 
 --------------------------------------------------------------------------------
@@ -125,7 +106,7 @@ More formally a @ThreadGroup@ has the following semantics:
 
 * 'wait' blocks as long as the counter is not 0.
 -}
-newtype ThreadGroup = ThreadGroup (TVar Integer) deriving (Eq, Typeable)
+newtype ThreadGroup = ThreadGroup (TVar Int) deriving (Eq, Typeable)
 
 -- | Create an empty group of threads.
 new ∷ IO ThreadGroup
@@ -137,7 +118,7 @@ group.
 Note that because this function yields a 'STM' computation, the returned number
 is guaranteed to be consistent inside the transaction.
 -}
-nrOfRunning ∷ ThreadGroup → STM Integer
+nrOfRunning ∷ ThreadGroup → STM Int
 nrOfRunning (ThreadGroup numThreadsTV) = readTVar numThreadsTV
 
 -- | Convenience function which blocks until all threads, that were added to the
@@ -160,39 +141,45 @@ forkIO = fork Control.Concurrent.forkIO
 forkOS ∷ ThreadGroup → IO α → IO (ThreadId, IO (Result α))
 forkOS = fork Control.Concurrent.forkOS
 
-#ifdef __GLASGOW_HASKELL__
--- | Same as @Control.Concurrent.Thread.'Thread.forkOnIO'@ but
--- additionaly adds the thread to the group. (GHC only)
-forkOnIO ∷ Int → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
-forkOnIO = fork ∘ GHC.Conc.forkOnIO
+-- | Same as @Control.Concurrent.Thread.'Thread.forkOn'@ but
+-- additionaly adds the thread to the group.
+forkOn ∷ Int → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
+forkOn = fork ∘ Control.Concurrent.forkOn
 
-#if MIN_VERSION_base(4,3,0)
--- | Same as @Control.Concurrent.Thread.'Thread.forkIOUnmasked'@ but
--- additionaly adds the thread to the group. (GHC only)
-forkIOUnmasked ∷ ThreadGroup → IO α → IO (ThreadId, IO (Result α))
-forkIOUnmasked (ThreadGroup numThreadsTV) a = do
-  res ← newEmptyMVar
-  tid ← block $ do
-    atomically $ modifyTVar numThreadsTV succ
-    Control.Concurrent.forkIO $ do
-      try (unblock a) >>= putMVar res
-      atomically $ modifyTVar numThreadsTV pred
-  return (tid, readMVar res)
-#endif
-#endif
+-- | Same as @Control.Concurrent.Thread.'Thread.forkIOWithUnmask'@ but
+-- additionaly adds the thread to the group.
+forkIOWithUnmask ∷ ThreadGroup → ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
+forkIOWithUnmask = forkWithUnmask Control.Concurrent.forkIOWithUnmask
+
+-- | Like @Control.Concurrent.Thread.'Thread.forkOnWithUnmask'@ but
+-- additionaly adds the thread to the group.
+forkOnWithUnmask ∷ Int → ThreadGroup → ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
+forkOnWithUnmask = forkWithUnmask ∘ Control.Concurrent.forkOnWithUnmask
+
 
 --------------------------------------------------------------------------------
+-- Utils
+--------------------------------------------------------------------------------
 
--- | Internally used function which generalises 'forkIO', 'forkOS' and
--- 'forkOnIO' by parameterizing the function which does the actual forking.
 fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
 fork doFork (ThreadGroup numThreadsTV) a = do
   res ← newEmptyMVar
   tid ← mask $ \restore → do
-    atomically $ modifyTVar numThreadsTV succ
+    atomically $ modifyTVar numThreadsTV (+ 1)
     doFork $ do
       try (restore a) >>= putMVar res
-      atomically $ modifyTVar numThreadsTV pred
+      atomically $ modifyTVar numThreadsTV (subtract 1)
+  return (tid, readMVar res)
+
+forkWithUnmask ∷ (((∀ β. IO β → IO β) → IO ()) → IO ThreadId)
+               → ThreadGroup → ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
+forkWithUnmask doForkWithUnmask = \(ThreadGroup numThreadsTV) f → do
+  res ← newEmptyMVar
+  tid ← mask $ \restore → do
+    atomically $ modifyTVar numThreadsTV (+ 1)
+    doForkWithUnmask $ \unmask → do
+      try (restore $ f unmask) >>= putMVar res
+      atomically $ modifyTVar numThreadsTV (subtract 1)
   return (tid, readMVar res)
 
 -- | Strictly modify the contents of a 'TVar'.
@@ -202,6 +189,3 @@ modifyTVar tv f = readTVar tv >>= writeTVar tv ∘! f
 -- | Strict function composition
 (∘!) ∷ (β → γ) → (α → β) → (α → γ)
 f ∘! g = \x → f $! g x
-
-
--- The End ---------------------------------------------------------------------

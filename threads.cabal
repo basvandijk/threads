@@ -1,5 +1,5 @@
 name:          threads
-version:       0.4.0.2
+version:       0.5
 cabal-version: >= 1.9.2
 build-type:    Custom
 stability:     experimental
@@ -10,7 +10,7 @@ maintainer:    Bas van Dijk <v.dijk.bas@gmail.com>
 copyright:     2010–2012 Bas van Dijk & Roel van Dijk
 license:       BSD3
 license-file:  LICENSE
-homepage:      https://github.com/basvandijk/threads/
+homepage:      https://github.com/basvandijk/threads
 bug-reports:   https://github.com/basvandijk/threads/issues
 category:      Concurrency
 synopsis:      Fork threads and wait for their result
@@ -34,7 +34,7 @@ description:   This package provides functions to fork threads and
                .
                * Correct handling of asynchronous exceptions.
                .
-               * GHC specific functionality like @forkOnIO@ and @forkIOUnmasked@.
+               * GHC specific functionality like @forkOn@ and @forkIOWithUnmask@.
 
 extra-source-files: README.markdown
 
@@ -45,28 +45,26 @@ source-repository head
 -------------------------------------------------------------------------------
 
 library
-  build-depends: base                 >= 3     && < 4.6
+  build-depends: base                 >= 4.4   && < 4.6
                , base-unicode-symbols >= 0.1.1 && < 0.3
-               , stm                  >= 2.1   && < 2.3
+               , stm                  >= 2.1   && < 2.4
   exposed-modules: Control.Concurrent.Thread
                  , Control.Concurrent.Thread.Group
-  other-modules: Mask
   ghc-options: -Wall
 
 -------------------------------------------------------------------------------
 
 test-suite test-threads
-  type:    exitcode-stdio-1.0
-  main-is: test.hs
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is:        test.hs
+  ghc-options:    -Wall -threaded
 
-  ghc-options: -Wall -threaded
-
-  build-depends: base                       >= 3     && < 4.6
-               , base-unicode-symbols       >= 0.1.1 && < 0.3
-               , stm                        >= 2.1   && < 2.3
-               , concurrent-extra           >= 0.5.1 && < 0.8
-               , HUnit                      >= 1.2.2 && < 1.3
-               , test-framework             >= 0.2.4 && < 0.6
-               , test-framework-hunit       >= 0.2.4 && < 0.3
-
--------------------------------------------------------------------------------
+  build-depends: threads
+               , base                 >= 4.4   && < 4.6
+               , base-unicode-symbols >= 0.1.1 && < 0.3
+               , stm                  >= 2.1   && < 2.4
+               , concurrent-extra     >= 0.5.1 && < 0.8
+               , HUnit                >= 1.2.2 && < 1.3
+               , test-framework       >= 0.2.4 && < 0.6
+               , test-framework-hunit >= 0.2.4 && < 0.3

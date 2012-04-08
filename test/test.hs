@@ -1,12 +1,4 @@
-{-# LANGUAGE CPP
-           , NoImplicitPrelude
-           , UnicodeSyntax
-           , DeriveDataTypeable
- #-}
-
-#if MIN_VERSION_base(4,3,0)
-{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-} -- For block and unblock
-#endif
+{-# LANGUAGE NoImplicitPrelude, UnicodeSyntax, DeriveDataTypeable #-}
 
 module Main where
 
@@ -22,11 +14,6 @@ import Control.Exception  ( Exception, fromException
                           , unblock, block, blocked
                           )
 import Control.Monad      ( return, (>>=), replicateM_ )
-
-#if __GLASGOW_HASKELL__ < 700
-import Control.Monad      ( (>>), fail )
-#endif
-
 import Data.Bool          ( Bool(False, True), not )
 import Data.Eq            ( Eq )
 import Data.Either        ( either )
@@ -36,7 +23,6 @@ import Data.Int           ( Int )
 import Data.Maybe         ( Maybe, maybe )
 import Data.IORef         ( newIORef, readIORef, writeIORef )
 import Data.Typeable      ( Typeable )
-import Prelude            ( fromInteger )
 import System.Timeout     ( timeout )
 import System.IO          ( IO )
 import Text.Show          ( Show )
@@ -92,23 +78,23 @@ tests = [ testGroup "Thread" $
             , testCase "sync exception"  $ test_sync_exception  Thread.forkOS
             , testCase "async exception" $ test_async_exception Thread.forkOS
             ]
-#ifdef __GLASGOW_HASKELL__
-          , testGroup "forkOnIO 0" $
-            [ testCase "wait"            $ test_wait            (Thread.forkOnIO 0)
-            , testCase "blockedState"    $ test_blockedState    (Thread.forkOnIO 0)
-            , testCase "unblockedState"  $ test_unblockedState  (Thread.forkOnIO 0)
-            , testCase "sync exception"  $ test_sync_exception  (Thread.forkOnIO 0)
-            , testCase "async exception" $ test_async_exception (Thread.forkOnIO 0)
+          , testGroup "forkOn 0" $
+            [ testCase "wait"            $ test_wait            $ Thread.forkOn 0
+            , testCase "blockedState"    $ test_blockedState    $ Thread.forkOn 0
+            , testCase "unblockedState"  $ test_unblockedState  $ Thread.forkOn 0
+            , testCase "sync exception"  $ test_sync_exception  $ Thread.forkOn 0
+            , testCase "async exception" $ test_async_exception $ Thread.forkOn 0
             ]
-#if MIN_VERSION_base(4,3,0)
-          , testGroup "forkIOUnmasked" $
-            [ testCase "wait"            $ test_wait            (Thread.forkIOUnmasked)
-            , testCase "unblockedState'" $ test_unblockedState' (Thread.forkIOUnmasked)
-            , testCase "sync exception"  $ test_sync_exception  (Thread.forkIOUnmasked)
-            , testCase "async exception" $ test_async_exception (Thread.forkIOUnmasked)
+          , testGroup "forkIOWithUnmask" $
+            [ testCase "wait"            $ test_wait            $ wrapUnmask Thread.forkIOWithUnmask
+            , testCase "sync exception"  $ test_sync_exception  $ wrapUnmask Thread.forkIOWithUnmask
+            , testCase "async exception" $ test_async_exception $ wrapUnmask Thread.forkIOWithUnmask
             ]
-#endif
-#endif
+          , testGroup "forkOnWithUnmask 0" $
+            [ testCase "wait"            $ test_wait            $ wrapUnmask $ Thread.forkOnWithUnmask 0
+            , testCase "sync exception"  $ test_sync_exception  $ wrapUnmask $ Thread.forkOnWithUnmask 0
+            , testCase "async exception" $ test_async_exception $ wrapUnmask $ Thread.forkOnWithUnmask 0
+            ]
           ]
         , testGroup "ThreadGroup" $
           [ testGroup "forkIO" $
@@ -131,29 +117,32 @@ tests = [ testGroup "Thread" $
             , testCase "group single wait" $ test_group_single_wait ThreadGroup.forkOS
             , testCase "group nrOfRunning" $ test_group_nrOfRunning ThreadGroup.forkOS
             ]
-#ifdef __GLASGOW_HASKELL__
-          , testGroup "forkOnIO 0" $
-            [ testCase "wait"              $ wrapOnIO_0 test_wait
-            , testCase "blockedState"      $ wrapOnIO_0 test_blockedState
-            , testCase "unblockedState"    $ wrapOnIO_0 test_unblockedState
-            , testCase "sync exception"    $ wrapOnIO_0 test_sync_exception
-            , testCase "async exception"   $ wrapOnIO_0 test_async_exception
+          , testGroup "forkOn 0" $
+            [ testCase "wait"              $ wrapOn_0 test_wait
+            , testCase "blockedState"      $ wrapOn_0 test_blockedState
+            , testCase "unblockedState"    $ wrapOn_0 test_unblockedState
+            , testCase "sync exception"    $ wrapOn_0 test_sync_exception
+            , testCase "async exception"   $ wrapOn_0 test_async_exception
 
-            , testCase "group single wait" $ test_group_single_wait (ThreadGroup.forkOnIO 0)
-            , testCase "group nrOfRunning" $ test_group_nrOfRunning (ThreadGroup.forkOnIO 0)
+            , testCase "group single wait" $ test_group_single_wait $ ThreadGroup.forkOn 0
+            , testCase "group nrOfRunning" $ test_group_nrOfRunning $ ThreadGroup.forkOn 0
             ]
-#if MIN_VERSION_base(4,3,0)
-          , testGroup "forkIOUnmasked" $
-            [ testCase "wait"              $ wrapIOUnmasked test_wait
-            , testCase "unblockedState'"   $ wrapIOUnmasked test_unblockedState'
-            , testCase "sync exception"    $ wrapIOUnmasked test_sync_exception
-            , testCase "async exception"   $ wrapIOUnmasked test_async_exception
+          , testGroup "forkIOWithUnmask" $
+            [ testCase "wait"              $ wrapIOWithUnmask test_wait
+            , testCase "sync exception"    $ wrapIOWithUnmask test_sync_exception
+            , testCase "async exception"   $ wrapIOWithUnmask test_async_exception
 
-            , testCase "group single wait" $ test_group_single_wait ThreadGroup.forkIOUnmasked
-            , testCase "group nrOfRunning" $ test_group_nrOfRunning ThreadGroup.forkIOUnmasked
+            , testCase "group single wait" $ test_group_single_wait $ wrapUnmask ∘ ThreadGroup.forkIOWithUnmask
+            , testCase "group nrOfRunning" $ test_group_nrOfRunning $ wrapUnmask ∘ ThreadGroup.forkIOWithUnmask
             ]
-#endif
-#endif
+          , testGroup "forkOnWithUnmask 0" $
+            [ testCase "wait"              $ wrapOnWithUnmask test_wait
+            , testCase "sync exception"    $ wrapOnWithUnmask test_sync_exception
+            , testCase "async exception"   $ wrapOnWithUnmask test_async_exception
+
+            , testCase "group single wait" $ test_group_single_wait $ wrapUnmask ∘ ThreadGroup.forkOnWithUnmask 0
+            , testCase "group nrOfRunning" $ test_group_nrOfRunning $ wrapUnmask ∘ ThreadGroup.forkOnWithUnmask 0
+            ]
           ]
         ]
 
@@ -167,6 +156,9 @@ a_moment = 5000
 --------------------------------------------------------------------------------
 
 type Fork α = IO α → IO (ThreadId, IO (Result α))
+
+wrapUnmask ∷ ((β → α) → t) → α → t
+wrapUnmask forkWithUnmask = \m -> forkWithUnmask $ const m
 
 test_wait ∷ Fork () → Assertion
 test_wait fork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
@@ -184,10 +176,6 @@ test_blockedState fork = do (_, wait) ← block $ fork $ blocked
 test_unblockedState ∷ Fork Bool → Assertion
 test_unblockedState fork = do (_, wait) ← unblock $ fork $ not <$> blocked
                               wait >>= result >>= assert
-
-test_unblockedState' ∷ Fork Bool → Assertion
-test_unblockedState' fork = do (_, wait) ← block $ fork $ not <$> blocked
-                               wait >>= result >>= assert
 
 test_sync_exception ∷ Fork () → Assertion
 test_sync_exception fork = assert $ do
@@ -226,15 +214,14 @@ wrapIO = wrap ThreadGroup.forkIO
 wrapOS ∷ (Fork α → IO β) → IO β
 wrapOS = wrap ThreadGroup.forkOS
 
-#ifdef __GLASGOW_HASKELL__
-wrapOnIO_0 ∷ (Fork α → IO β) → IO β
-wrapOnIO_0 = wrap $ ThreadGroup.forkOnIO 0
+wrapOn_0 ∷ (Fork α → IO β) → IO β
+wrapOn_0 = wrap $ ThreadGroup.forkOn 0
 
-#if MIN_VERSION_base(4,3,0)
-wrapIOUnmasked ∷ (Fork α → IO β) → IO β
-wrapIOUnmasked = wrap ThreadGroup.forkIOUnmasked
-#endif
-#endif
+wrapIOWithUnmask ∷ (Fork α → IO β) → IO β
+wrapIOWithUnmask = wrap $ \tg m -> ThreadGroup.forkIOWithUnmask tg $ const m
+
+wrapOnWithUnmask ∷ (Fork α → IO β) → IO β
+wrapOnWithUnmask = wrap $ \tg m -> ThreadGroup.forkOnWithUnmask 0 tg $ const m
 
 wrap ∷ (ThreadGroup → Fork α) → (Fork α → IO β) → IO β
 wrap doFork test = ThreadGroup.new >>= test ∘ doFork
@@ -253,13 +240,14 @@ test_group_nrOfRunning ∷ (ThreadGroup → Fork ()) → Assertion
 test_group_nrOfRunning doFork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
   tg ← ThreadGroup.new
   l ← Lock.newAcquired
-  replicateM_ (fromInteger n) $ doFork tg $ Lock.acquire l
-  true ← fmap (≡ n) $ atomically $ ThreadGroup.nrOfRunning tg
+  replicateM_ n $ doFork tg $ Lock.acquire l
+  true ← fmap (≡ n) $ (atomically $ ThreadGroup.nrOfRunning tg ∷ IO Int)
   Lock.release l
   return true
     where
       -- Don't set this number too big otherwise forkOS might throw an exception
       -- indicating that too many OS threads have been created:
+      n ∷ Int
       n = 100
 
 
@@ -278,6 +266,3 @@ justEq = maybe False ∘ (≡)
 -- | A flipped '<$>'.
 (<$$>) ∷ Functor f ⇒ f α → (α → β) → f β
 (<$$>) = flip (<$>)
-
-
--- The End ---------------------------------------------------------------------
