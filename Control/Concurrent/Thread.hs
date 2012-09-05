@@ -1,4 +1,8 @@
-{-# LANGUAGE NoImplicitPrelude, UnicodeSyntax, RankNTypes #-}
+{-# LANGUAGE CPP, NoImplicitPrelude, UnicodeSyntax, RankNTypes #-}
+
+#if __GLASGOW_HASKELL__ >= 701
+{-# LANGUAGE Trustworthy #-}
+#endif
 
 --------------------------------------------------------------------------------
 -- |
@@ -52,9 +56,7 @@ module Control.Concurrent.Thread
 --------------------------------------------------------------------------------
 
 -- from base:
-import qualified Control.Concurrent ( forkIO
-                                    , forkOS
-                                    , forkOn
+import qualified Control.Concurrent ( forkOS
                                     , forkIOWithUnmask
                                     , forkOnWithUnmask
                                     )
@@ -70,6 +72,9 @@ import System.IO                    ( IO )
 -- from base-unicode-symbols:
 import Data.Function.Unicode        ( (∘) )
 
+-- from threads:
+import Control.Concurrent.Raw       ( rawForkIO, rawForkOn )
+
 
 --------------------------------------------------------------------------------
 -- * Forking threads
@@ -79,7 +84,7 @@ import Data.Function.Unicode        ( (∘) )
 -- a computation that when executed blocks until the thread terminates
 -- then returns the final value of the thread.
 forkIO ∷ IO α → IO (ThreadId, IO (Result α))
-forkIO = fork Control.Concurrent.forkIO
+forkIO = fork rawForkIO
 
 -- | Like @Control.Concurrent.'Control.Concurrent.forkOS'@ but returns
 -- a computation that when executed blocks until the thread terminates
@@ -91,7 +96,7 @@ forkOS = fork Control.Concurrent.forkOS
 -- a computation that when executed blocks until the thread terminates
 -- then returns the final value of the thread.
 forkOn ∷ Int → IO α → IO (ThreadId, IO (Result α))
-forkOn = fork ∘ Control.Concurrent.forkOn
+forkOn = fork ∘ rawForkOn
 
 -- | Like @Control.Concurrent.'Control.Concurrent.forkIOWithUnmask'@ but returns
 -- a computation that when executed blocks until the thread terminates

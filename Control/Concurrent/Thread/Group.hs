@@ -5,6 +5,10 @@
            , RankNTypes
   #-}
 
+#if __GLASGOW_HASKELL__ >= 701
+{-# LANGUAGE Trustworthy #-}
+#endif
+
 --------------------------------------------------------------------------------
 -- |
 -- Module     : Control.Concurrent.Thread.Group
@@ -47,9 +51,7 @@ module Control.Concurrent.Thread.Group
 --------------------------------------------------------------------------------
 
 -- from base:
-import qualified Control.Concurrent     ( forkIO
-                                        , forkOS
-                                        , forkOn
+import qualified Control.Concurrent     ( forkOS
                                         , forkIOWithUnmask
                                         , forkOnWithUnmask
                                         )
@@ -75,7 +77,7 @@ import Control.Concurrent.STM           ( STM, atomically, retry )
 
 -- from threads:
 import Control.Concurrent.Thread        ( Result )
-
+import Control.Concurrent.Raw           ( rawForkIO, rawForkOn )
 #ifdef __HADDOCK__
 import qualified Control.Concurrent.Thread as Thread ( forkIO
                                                      , forkOS
@@ -134,7 +136,7 @@ wait tg = atomically $ nrOfRunning tg >>= \n → when (n ≢ 0) retry
 -- | Same as @Control.Concurrent.Thread.'Thread.forkIO'@ but additionaly adds
 -- the thread to the group.
 forkIO ∷ ThreadGroup → IO α → IO (ThreadId, IO (Result α))
-forkIO = fork Control.Concurrent.forkIO
+forkIO = fork rawForkIO
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOS'@ but additionaly adds
 -- the thread to the group.
@@ -144,7 +146,7 @@ forkOS = fork Control.Concurrent.forkOS
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOn'@ but
 -- additionaly adds the thread to the group.
 forkOn ∷ Int → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
-forkOn = fork ∘ Control.Concurrent.forkOn
+forkOn = fork ∘ rawForkOn
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkIOWithUnmask'@ but
 -- additionaly adds the thread to the group.
