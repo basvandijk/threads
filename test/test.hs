@@ -10,12 +10,12 @@ module Main where
 import Control.Concurrent ( ThreadId, threadDelay, throwTo, killThread )
 import Control.Exception  ( Exception, fromException
                           , AsyncException(ThreadKilled)
-                          , throwIO
-                          , unblock, block, blocked
+                          , throwIO, mask_
+                          , getMaskingState, MaskingState(MaskedInterruptible)
                           )
 import Control.Monad      ( return, (>>=), replicateM_ )
-import Data.Bool          ( Bool(False, True), not )
-import Data.Eq            ( Eq )
+import Data.Bool          ( Bool(False, True) )
+import Data.Eq            ( Eq, (==) )
 import Data.Either        ( either )
 import Data.Function      ( ($), id, const, flip )
 import Data.Functor       ( Functor(fmap), (<$>) )
@@ -66,22 +66,19 @@ tests ∷ [Test]
 tests = [ testGroup "Thread" $
           [ testGroup "forkIO" $
             [ testCase "wait"            $ test_wait            Thread.forkIO
-            , testCase "blockedState"    $ test_blockedState    Thread.forkIO
-            , testCase "unblockedState"  $ test_unblockedState  Thread.forkIO
+            , testCase "maskingState"    $ test_maskingState    Thread.forkIO
             , testCase "sync exception"  $ test_sync_exception  Thread.forkIO
             , testCase "async exception" $ test_async_exception Thread.forkIO
             ]
           , testGroup "forkOS" $
             [ testCase "wait"            $ test_wait            Thread.forkOS
-            , testCase "blockedState"    $ test_blockedState    Thread.forkOS
-            , testCase "unblockedState"  $ test_unblockedState  Thread.forkOS
+            , testCase "maskingState"    $ test_maskingState    Thread.forkOS
             , testCase "sync exception"  $ test_sync_exception  Thread.forkOS
             , testCase "async exception" $ test_async_exception Thread.forkOS
             ]
           , testGroup "forkOn 0" $
             [ testCase "wait"            $ test_wait            $ Thread.forkOn 0
-            , testCase "blockedState"    $ test_blockedState    $ Thread.forkOn 0
-            , testCase "unblockedState"  $ test_unblockedState  $ Thread.forkOn 0
+            , testCase "maskingState"    $ test_maskingState    $ Thread.forkOn 0
             , testCase "sync exception"  $ test_sync_exception  $ Thread.forkOn 0
             , testCase "async exception" $ test_async_exception $ Thread.forkOn 0
             ]
@@ -99,8 +96,7 @@ tests = [ testGroup "Thread" $
         , testGroup "ThreadGroup" $
           [ testGroup "forkIO" $
             [ testCase "wait"              $ wrapIO test_wait
-            , testCase "blockedState"      $ wrapIO test_blockedState
-            , testCase "unblockedState"    $ wrapIO test_unblockedState
+            , testCase "maskingState"      $ wrapIO test_maskingState
             , testCase "sync exception"    $ wrapIO test_sync_exception
             , testCase "async exception"   $ wrapIO test_async_exception
 
@@ -109,8 +105,7 @@ tests = [ testGroup "Thread" $
             ]
           , testGroup "forkOS" $
             [ testCase "wait"              $ wrapOS test_wait
-            , testCase "blockedState"      $ wrapOS test_blockedState
-            , testCase "unblockedState"    $ wrapOS test_unblockedState
+            , testCase "maskingState"      $ wrapOS test_maskingState
             , testCase "sync exception"    $ wrapOS test_sync_exception
             , testCase "async exception"   $ wrapOS test_async_exception
 
@@ -119,8 +114,7 @@ tests = [ testGroup "Thread" $
             ]
           , testGroup "forkOn 0" $
             [ testCase "wait"              $ wrapOn_0 test_wait
-            , testCase "blockedState"      $ wrapOn_0 test_blockedState
-            , testCase "unblockedState"    $ wrapOn_0 test_unblockedState
+            , testCase "maskingState"      $ wrapOn_0 test_maskingState
             , testCase "sync exception"    $ wrapOn_0 test_sync_exception
             , testCase "async exception"   $ wrapOn_0 test_async_exception
 
@@ -169,13 +163,10 @@ test_wait fork = assert $ fmap isJustTrue $ timeout (10 ⋅ a_moment) $ do
   _ ← wait
   readIORef r
 
-test_blockedState ∷ Fork Bool → Assertion
-test_blockedState fork = do (_, wait) ← block $ fork $ blocked
+test_maskingState ∷ Fork Bool → Assertion
+test_maskingState fork = do (_, wait) ← mask_ $ fork $
+                              (MaskedInterruptible ==) <$> getMaskingState
                             wait >>= result >>= assert
-
-test_unblockedState ∷ Fork Bool → Assertion
-test_unblockedState fork = do (_, wait) ← unblock $ fork $ not <$> blocked
-                              wait >>= result >>= assert
 
 test_sync_exception ∷ Fork () → Assertion
 test_sync_exception fork = assert $ do
