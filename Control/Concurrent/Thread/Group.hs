@@ -128,6 +128,11 @@ nrOfRunning (ThreadGroup numThreadsTV) = readTVar numThreadsTV
 wait ∷ ThreadGroup → IO ()
 wait tg = atomically $ nrOfRunning tg >>= \n → when (n ≢ 0) retry
 
+-- | Convenience function to help place an upper bound on the number of threads in the 'ThreadGroup'
+-- Blocks until there are fewer threads occupied than the specified number
+waitN ∷ Int -> ThreadGroup → IO ()
+waitN i tg = atomically $ nrOfRunning tg >>= \n → when (n >= i) retry
+
 
 --------------------------------------------------------------------------------
 -- * Forking threads
