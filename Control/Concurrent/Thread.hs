@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, NoImplicitPrelude, UnicodeSyntax, RankNTypes #-}
+{-# LANGUAGE CPP, NoImplicitPrelude, UnicodeSyntax, RankNTypes, ImpredicativeTypes #-}
 
 #if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
