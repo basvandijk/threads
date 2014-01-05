@@ -2,6 +2,7 @@
            , DeriveDataTypeable
            , NoImplicitPrelude
            , UnicodeSyntax
+           , ImpredicativeTypes
            , RankNTypes #-}
 
 #if __GLASGOW_HASKELL__ >= 701

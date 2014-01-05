@@ -45,7 +45,7 @@ source-repository head
 -------------------------------------------------------------------------------
 
 library
-  build-depends: base                 >= 4.4   && < 4.7
+  build-depends: base                 >= 4.4   && < 4.8
                , base-unicode-symbols >= 0.1.1 && < 0.3
                , stm                  >= 2.1   && < 2.5
   exposed-modules: Control.Concurrent.Thread
@@ -62,7 +62,7 @@ test-suite test-threads
   ghc-options:    -Wall -threaded
 
   build-depends: threads
-               , base                 >= 4.4   && < 4.7
+               , base                 >= 4.4   && < 4.8
                , base-unicode-symbols >= 0.1.1 && < 0.3
                , stm                  >= 2.1   && < 2.5
                , concurrent-extra     >= 0.5.1 && < 0.8
