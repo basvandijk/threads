@@ -35,6 +35,7 @@ module Control.Concurrent.Thread.Group
     , new
     , nrOfRunning
     , wait
+    , waitN
 
       -- * Forking threads
     , forkIO
@@ -67,7 +68,7 @@ import Prelude                          ( ($!), (+), subtract )
 import System.IO                        ( IO )
 
 -- from base-unicode-symbols:
-import Data.Eq.Unicode                  ( (≢) )
+import Data.Ord.Unicode                 ( (≥) )
 import Data.Function.Unicode            ( (∘) )
 
 -- from stm:
@@ -105,7 +106,10 @@ More formally a @ThreadGroup@ has the following semantics:
 
 * 'nrOfRunning' yields a transaction that returns the counter.
 
-* 'wait' blocks as long as the counter is not 0.
+* 'wait' blocks as long as the counter is greater than 0.
+
+* 'waitN' blocks as long as the counter is greater or equal to the
+   specified number.
 -}
 newtype ThreadGroup = ThreadGroup (TVar Int) deriving (Eq, Typeable)
 
@@ -124,13 +128,17 @@ nrOfRunning (ThreadGroup numThreadsTV) = readTVar numThreadsTV
 
 -- | Convenience function which blocks until all threads, that were added to the
 -- group have terminated.
+--
+-- Note that: @wait = 'waitN' 1@.
 wait ∷ ThreadGroup → IO ()
-wait tg = atomically $ nrOfRunning tg >>= \n → when (n ≢ 0) retry
+wait = waitN 1
 
--- | Convenience function to help place an upper bound on the number of threads in the 'ThreadGroup'
--- Blocks until there are fewer threads occupied than the specified number
+-- | Convenience function to help place an upper bound on the number
+-- of threads in the group.
+--
+-- Blocks until there are fewer threads occupied than the specified number.
 waitN ∷ Int -> ThreadGroup → IO ()
-waitN i tg = atomically $ nrOfRunning tg >>= \n → when (n >= i) retry
+waitN i tg = atomically $ nrOfRunning tg >>= \n → when (n ≥ i) retry
 
 
 --------------------------------------------------------------------------------
