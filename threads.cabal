@@ -1,5 +1,5 @@
 name:          threads
-version:       0.5.1.0
+version:       0.5.1.1
 cabal-version: >= 1.9.2
 build-type:    Custom
 stability:     experimental
