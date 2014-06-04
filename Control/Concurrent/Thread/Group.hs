@@ -127,17 +127,13 @@ is guaranteed to be consistent inside the transaction.
 nrOfRunning ∷ ThreadGroup → STM Int
 nrOfRunning (ThreadGroup numThreadsTV) = readTVar numThreadsTV
 
--- | Convenience function which blocks until all threads, that were added to the
--- group have terminated.
+-- | Block until all threads in the group have terminated.
 --
 -- Note that: @wait = 'waitN' 1@.
 wait ∷ ThreadGroup → IO ()
 wait = waitN 1
 
--- | Convenience function to help place an upper bound on the number
--- of threads in the group.
---
--- Blocks until there are fewer threads occupied than the specified number.
+-- | Block until there are fewer than @N@ running threads in the group.
 waitN ∷ Int -> ThreadGroup → IO ()
 waitN i tg = atomically $ nrOfRunning tg >>= \n → when (n ≥ i) retry
 
