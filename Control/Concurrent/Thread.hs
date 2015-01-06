@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, NoImplicitPrelude, UnicodeSyntax, RankNTypes, ImpredicativeTypes #-}
+{-# LANGUAGE CPP, NoImplicitPrelude, RankNTypes, ImpredicativeTypes #-}
 
 #if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
@@ -65,12 +65,9 @@ import Control.Concurrent.MVar      ( newEmptyMVar, putMVar, readMVar )
 import Control.Exception            ( SomeException, try, throwIO, mask )
 import Control.Monad                ( return, (>>=) )
 import Data.Either                  ( Either(..), either )
-import Data.Function                ( ($) )
+import Data.Function                ( (.), ($) )
 import Data.Int                     ( Int )
 import System.IO                    ( IO )
-
--- from base-unicode-symbols:
-import Data.Function.Unicode        ( (∘) )
 
 -- from threads:
 import Control.Concurrent.Raw       ( rawForkIO, rawForkOn )
@@ -83,51 +80,54 @@ import Control.Concurrent.Raw       ( rawForkIO, rawForkOn )
 -- | Like @Control.Concurrent.'Control.Concurrent.forkIO'@ but returns
 -- a computation that when executed blocks until the thread terminates
 -- then returns the final value of the thread.
-forkIO ∷ IO α → IO (ThreadId, IO (Result α))
+forkIO :: IO a -> IO (ThreadId, IO (Result a))
 forkIO = fork rawForkIO
 
 -- | Like @Control.Concurrent.'Control.Concurrent.forkOS'@ but returns
 -- a computation that when executed blocks until the thread terminates
 -- then returns the final value of the thread.
-forkOS ∷ IO α → IO (ThreadId, IO (Result α))
+forkOS :: IO a -> IO (ThreadId, IO (Result a))
 forkOS = fork Control.Concurrent.forkOS
 
 -- | Like @Control.Concurrent.'Control.Concurrent.forkOn'@ but returns
 -- a computation that when executed blocks until the thread terminates
 -- then returns the final value of the thread.
-forkOn ∷ Int → IO α → IO (ThreadId, IO (Result α))
-forkOn = fork ∘ rawForkOn
+forkOn :: Int -> IO a -> IO (ThreadId, IO (Result a))
+forkOn = fork . rawForkOn
 
 -- | Like @Control.Concurrent.'Control.Concurrent.forkIOWithUnmask'@ but returns
 -- a computation that when executed blocks until the thread terminates
 -- then returns the final value of the thread.
-forkIOWithUnmask ∷ ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
+forkIOWithUnmask
+    :: ((forall b. IO b -> IO b) -> IO a) -> IO (ThreadId, IO (Result a))
 forkIOWithUnmask = forkWithUnmask Control.Concurrent.forkIOWithUnmask
 
 -- | Like @Control.Concurrent.'Control.Concurrent.forkOnWithUnmask'@ but returns
 -- a computation that when executed blocks until the thread terminates
 -- then returns the final value of the thread.
-forkOnWithUnmask ∷ Int → ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
-forkOnWithUnmask = forkWithUnmask ∘ Control.Concurrent.forkOnWithUnmask
+forkOnWithUnmask
+    :: Int -> ((forall b. IO b -> IO b) -> IO a) -> IO (ThreadId, IO (Result a))
+forkOnWithUnmask = forkWithUnmask . Control.Concurrent.forkOnWithUnmask
 
 
 --------------------------------------------------------------------------------
 -- Utils
 --------------------------------------------------------------------------------
 
-fork ∷ (IO () → IO ThreadId) → (IO α → IO (ThreadId, IO (Result α)))
-fork doFork = \a → do
-  res ← newEmptyMVar
-  tid ← mask $ \restore → doFork $ try (restore a) >>= putMVar res
+fork :: (IO () -> IO ThreadId) -> (IO a -> IO (ThreadId, IO (Result a)))
+fork doFork = \a -> do
+  res <- newEmptyMVar
+  tid <- mask $ \restore -> doFork $ try (restore a) >>= putMVar res
   return (tid, readMVar res)
 
-forkWithUnmask ∷ (((∀ β. IO β → IO β) → IO ()) → IO ThreadId)
-               →  ((∀ β. IO β → IO β) → IO α)  → IO (ThreadId, IO (Result α))
-forkWithUnmask doForkWithUnmask = \f → do
-  res ← newEmptyMVar
-  tid ← mask $ \restore →
-          doForkWithUnmask $ \unmask →
-            try (restore $ f unmask) >>= putMVar res
+forkWithUnmask
+    :: (((forall b. IO b -> IO b) -> IO ()) -> IO ThreadId)
+    ->  ((forall b. IO b -> IO b) -> IO a)  -> IO (ThreadId, IO (Result a))
+forkWithUnmask doForkWithUnmask = \f -> do
+  res <- newEmptyMVar
+  tid <- mask $ \restore ->
+           doForkWithUnmask $ \unmask ->
+             try (restore $ f unmask) >>= putMVar res
   return (tid, readMVar res)
 
 
@@ -137,10 +137,10 @@ forkWithUnmask doForkWithUnmask = \f → do
 
 -- | A result of a thread is either some exception that was thrown in the thread
 -- and wasn't catched or the actual value that was returned by the thread.
-type Result α = Either SomeException α
+type Result a = Either SomeException a
 
 -- | Retrieve the actual value from the result.
 --
 -- When the result is 'SomeException' the exception is thrown.
-result ∷ Result α → IO α
+result :: Result a -> IO a
 result = either throwIO return

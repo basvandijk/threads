@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP
            , DeriveDataTypeable
            , NoImplicitPrelude
-           , UnicodeSyntax
            , ImpredicativeTypes
            , RankNTypes #-}
 
@@ -60,17 +59,14 @@ import Control.Concurrent               ( ThreadId )
 import Control.Concurrent.MVar          ( newEmptyMVar, putMVar, readMVar )
 import Control.Exception                ( try, mask )
 import Control.Monad                    ( return, (>>=), when )
-import Data.Function                    ( ($) )
+import Data.Function                    ( (.), ($) )
 import Data.Functor                     ( fmap )
 import Data.Eq                          ( Eq )
+import Data.Ord                         ( (>=) )
 import Data.Int                         ( Int )
 import Data.Typeable                    ( Typeable )
 import Prelude                          ( ($!), (+), subtract )
 import System.IO                        ( IO )
-
--- from base-unicode-symbols:
-import Data.Ord.Unicode                 ( (≥) )
-import Data.Function.Unicode            ( (∘) )
 
 -- from stm:
 import Control.Concurrent.STM.TVar      ( TVar, newTVarIO, readTVar, writeTVar )
@@ -115,7 +111,7 @@ More formally a @ThreadGroup@ has the following semantics:
 newtype ThreadGroup = ThreadGroup (TVar Int) deriving (Eq, Typeable)
 
 -- | Create an empty group of threads.
-new ∷ IO ThreadGroup
+new :: IO ThreadGroup
 new = fmap ThreadGroup $ newTVarIO 0
 
 {-| Yield a transaction that returns the number of running threads in the
@@ -124,18 +120,18 @@ group.
 Note that because this function yields a 'STM' computation, the returned number
 is guaranteed to be consistent inside the transaction.
 -}
-nrOfRunning ∷ ThreadGroup → STM Int
+nrOfRunning :: ThreadGroup -> STM Int
 nrOfRunning (ThreadGroup numThreadsTV) = readTVar numThreadsTV
 
 -- | Block until all threads in the group have terminated.
 --
 -- Note that: @wait = 'waitN' 1@.
-wait ∷ ThreadGroup → IO ()
+wait :: ThreadGroup -> IO ()
 wait = waitN 1
 
 -- | Block until there are fewer than @N@ running threads in the group.
-waitN ∷ Int -> ThreadGroup → IO ()
-waitN i tg = atomically $ nrOfRunning tg >>= \n → when (n ≥ i) retry
+waitN :: Int -> ThreadGroup -> IO ()
+waitN i tg = atomically $ nrOfRunning tg >>= \n -> when (n >= i) retry
 
 
 --------------------------------------------------------------------------------
@@ -144,59 +140,72 @@ waitN i tg = atomically $ nrOfRunning tg >>= \n → when (n ≥ i) retry
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkIO'@ but additionaly adds
 -- the thread to the group.
-forkIO ∷ ThreadGroup → IO α → IO (ThreadId, IO (Result α))
+forkIO :: ThreadGroup -> IO a -> IO (ThreadId, IO (Result a))
 forkIO = fork rawForkIO
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOS'@ but additionaly adds
 -- the thread to the group.
-forkOS ∷ ThreadGroup → IO α → IO (ThreadId, IO (Result α))
+forkOS :: ThreadGroup -> IO a -> IO (ThreadId, IO (Result a))
 forkOS = fork Control.Concurrent.forkOS
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkOn'@ but
 -- additionaly adds the thread to the group.
-forkOn ∷ Int → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
-forkOn = fork ∘ rawForkOn
+forkOn :: Int -> ThreadGroup -> IO a -> IO (ThreadId, IO (Result a))
+forkOn = fork . rawForkOn
 
 -- | Same as @Control.Concurrent.Thread.'Thread.forkIOWithUnmask'@ but
 -- additionaly adds the thread to the group.
-forkIOWithUnmask ∷ ThreadGroup → ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
+forkIOWithUnmask
+    :: ThreadGroup
+    -> ((forall b. IO b -> IO b) -> IO a)
+    -> IO (ThreadId, IO (Result a))
 forkIOWithUnmask = forkWithUnmask Control.Concurrent.forkIOWithUnmask
 
 -- | Like @Control.Concurrent.Thread.'Thread.forkOnWithUnmask'@ but
 -- additionaly adds the thread to the group.
-forkOnWithUnmask ∷ Int → ThreadGroup → ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
-forkOnWithUnmask = forkWithUnmask ∘ Control.Concurrent.forkOnWithUnmask
+forkOnWithUnmask
+    :: Int
+    -> ThreadGroup
+    -> ((forall b. IO b -> IO b) -> IO a)
+    -> IO (ThreadId, IO (Result a))
+forkOnWithUnmask = forkWithUnmask . Control.Concurrent.forkOnWithUnmask
 
 
 --------------------------------------------------------------------------------
 -- Utils
 --------------------------------------------------------------------------------
 
-fork ∷ (IO () → IO ThreadId) → ThreadGroup → IO α → IO (ThreadId, IO (Result α))
+fork :: (IO () -> IO ThreadId)
+     -> ThreadGroup
+     -> IO a
+     -> IO (ThreadId, IO (Result a))
 fork doFork (ThreadGroup numThreadsTV) a = do
-  res ← newEmptyMVar
-  tid ← mask $ \restore → do
+  res <- newEmptyMVar
+  tid <- mask $ \restore -> do
     atomically $ modifyTVar numThreadsTV (+ 1)
     doFork $ do
       try (restore a) >>= putMVar res
       atomically $ modifyTVar numThreadsTV (subtract 1)
   return (tid, readMVar res)
 
-forkWithUnmask ∷ (((∀ β. IO β → IO β) → IO ()) → IO ThreadId)
-               → ThreadGroup → ((∀ β. IO β → IO β) → IO α) → IO (ThreadId, IO (Result α))
-forkWithUnmask doForkWithUnmask = \(ThreadGroup numThreadsTV) f → do
-  res ← newEmptyMVar
-  tid ← mask $ \restore → do
+forkWithUnmask
+    :: (((forall b. IO b -> IO b) -> IO ()) -> IO ThreadId)
+    -> ThreadGroup
+    -> ((forall b. IO b -> IO b) -> IO a)
+    -> IO (ThreadId, IO (Result a))
+forkWithUnmask doForkWithUnmask = \(ThreadGroup numThreadsTV) f -> do
+  res <- newEmptyMVar
+  tid <- mask $ \restore -> do
     atomically $ modifyTVar numThreadsTV (+ 1)
-    doForkWithUnmask $ \unmask → do
+    doForkWithUnmask $ \unmask -> do
       try (restore $ f unmask) >>= putMVar res
       atomically $ modifyTVar numThreadsTV (subtract 1)
   return (tid, readMVar res)
 
 -- | Strictly modify the contents of a 'TVar'.
-modifyTVar ∷ TVar α → (α → α) → STM ()
-modifyTVar tv f = readTVar tv >>= writeTVar tv ∘! f
+modifyTVar :: TVar a -> (a -> a) -> STM ()
+modifyTVar tv f = readTVar tv >>= writeTVar tv .! f
 
 -- | Strict function composition
-(∘!) ∷ (β → γ) → (α → β) → (α → γ)
-f ∘! g = \x → f $! g x
+(.!) :: (b -> c) -> (a -> b) -> (a -> c)
+f .! g = \x -> f $! g x
