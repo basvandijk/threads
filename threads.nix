@@ -1,19 +1,15 @@
-{ cabal, concurrentExtra, HUnit, stm
-, testFramework, testFrameworkHunit
+{ mkDerivation, base, concurrent-extra, HUnit, stdenv, stm
+, test-framework, test-framework-hunit
 }:
-
-cabal.mkDerivation (self: {
+mkDerivation {
   pname = "threads";
   version = "HEAD";
   src = ./.;
-  buildDepends = [ stm ];
-  testDepends = [
-    concurrentExtra HUnit stm testFramework testFrameworkHunit
+  libraryHaskellDepends = [ base stm ];
+  testHaskellDepends = [
+    base concurrent-extra HUnit stm test-framework test-framework-hunit
   ];
-  meta = {
-    homepage = "https://github.com/basvandijk/threads";
-    description = "Fork threads and wait for their result";
-    license = self.stdenv.lib.licenses.bsd3;
-    platforms = self.ghc.meta.platforms;
-  };
-})
+  homepage = "https://github.com/basvandijk/threads";
+  description = "Fork threads and wait for their result";
+  license = stdenv.lib.licenses.bsd3;
+}

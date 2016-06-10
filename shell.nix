@@ -1,17 +1,15 @@
-let
-  pkgs = import <nixpkgs> {};
-  haskellPackages = pkgs.haskellPackages.override {
-    extension = self: super: {
-      threads = self.callPackage ./threads.nix {};
-    };
-  };
+{ nixpkgs ? import <nixpkgs> {}, compiler ? "default" }:
 
-in pkgs.myEnvFun {
-     name = haskellPackages.threads.name;
-     buildInputs = [
-       (haskellPackages.ghcWithPackages (hs: ([
-         hs.cabalInstall
-       ] ++ hs.threads.propagatedNativeBuildInputs
-         ++ hs.threads.extraBuildInputs)))
-     ];
-   }
+let
+
+  inherit (nixpkgs) pkgs;
+
+  haskellPackages = if compiler == "default"
+                       then pkgs.haskellPackages
+                       else pkgs.haskell.packages.${compiler};
+
+  drv = haskellPackages.callPackage (import ./threads.nix) {};
+
+in
+
+  if pkgs.lib.inNixShell then drv.env else drv
