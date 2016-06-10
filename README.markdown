@@ -1,3 +1,6 @@
+[![Hackage](https://img.shields.io/hackage/v/threads.svg)](https://hackage.haskell.org/package/threads)
+[![Build Status](https://travis-ci.org/basvandijk/threads.svg)](https://travis-ci.org/basvandijk/threads)
+
 This package provides functions to fork threads and wait for their
 result, whether it's an exception or a normal value.
 
