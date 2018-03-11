@@ -51,12 +51,12 @@ source-repository head
   Location: git://github.com/basvandijk/threads.git
 
 custom-setup
-    setup-depends: base >= 4.4 && < 4.11, Cabal >= 1.12 && < 2.1
+    setup-depends: base >= 4.4 && < 4.12, Cabal >= 1.12 && < 2.1
 
 -------------------------------------------------------------------------------
 
 library
-  build-depends: base                 >= 4.4   && < 4.11
+  build-depends: base                 >= 4.4   && < 4.12
                , stm                  >= 2.1   && < 2.5
   exposed-modules: Control.Concurrent.Thread
                  , Control.Concurrent.Thread.Group
@@ -72,7 +72,7 @@ test-suite test-threads
   ghc-options:    -Wall -threaded
 
   build-depends: threads
-               , base                 >= 4.4   && < 4.11
+               , base                 >= 4.4   && < 4.12
                , stm                  >= 2.1   && < 2.5
                , concurrent-extra     >= 0.5.1 && < 0.8
                , HUnit                >= 1.2.2 && < 1.7
