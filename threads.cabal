@@ -1,5 +1,5 @@
 name:          threads
-version:       0.5.1.5
+version:       0.5.1.6
 cabal-version: >= 1.9.2
 build-type:    Custom
 stability:     experimental
@@ -23,8 +23,8 @@ description:   This package provides functions to fork threads and
                group of threads to terminate.
                .
                This package is similar to the
-	       @threadmanager@, @async@ and @spawn@ packages.
-	       The advantages of this package are:
+               @threadmanager@, @async@ and @spawn@ packages.
+               The advantages of this package are:
                .
                * Simpler API.
                .
@@ -51,13 +51,13 @@ source-repository head
   Location: git://github.com/basvandijk/threads.git
 
 custom-setup
-    setup-depends: base >= 4.4 && < 4.11, Cabal >= 1.12 && < 2.1
+    setup-depends: base >= 4.4 && < 5, Cabal >= 1.12
 
 -------------------------------------------------------------------------------
 
 library
-  build-depends: base                 >= 4.4   && < 4.11
-               , stm                  >= 2.1   && < 2.5
+  build-depends: base >= 4.4 && < 5
+               , stm  >= 2.1
   exposed-modules: Control.Concurrent.Thread
                  , Control.Concurrent.Thread.Group
   other-modules:   Control.Concurrent.Raw
@@ -72,9 +72,9 @@ test-suite test-threads
   ghc-options:    -Wall -threaded
 
   build-depends: threads
-               , base                 >= 4.4   && < 4.11
-               , stm                  >= 2.1   && < 2.5
-               , concurrent-extra     >= 0.5.1 && < 0.8
-               , HUnit                >= 1.2.2 && < 1.7
-               , test-framework       >= 0.2.4 && < 0.9
-               , test-framework-hunit >= 0.2.4 && < 0.4
+               , base                 >= 4.4 && < 5
+               , stm                  >= 2.1
+               , concurrent-extra     >= 0.5.1
+               , HUnit                >= 1.2.2
+               , test-framework       >= 0.2.4
+               , test-framework-hunit >= 0.2.4
