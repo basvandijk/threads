@@ -205,10 +205,10 @@ wrapOn_0 :: (Fork a -> IO b) -> IO b
 wrapOn_0 = wrap $ ThreadGroup.forkOn 0
 
 wrapIOWithUnmask :: (Fork a -> IO b) -> IO b
-wrapIOWithUnmask = wrap $ \tg m -> ThreadGroup.forkIOWithUnmask tg $ const m
+wrapIOWithUnmask = wrap $ \tg m -> ThreadGroup.forkIOWithUnmask tg (\_ -> m)
 
 wrapOnWithUnmask :: (Fork a -> IO b) -> IO b
-wrapOnWithUnmask = wrap $ \tg m -> ThreadGroup.forkOnWithUnmask 0 tg $ const m
+wrapOnWithUnmask = wrap $ \tg m -> ThreadGroup.forkOnWithUnmask 0 tg (\_ -> m)
 
 wrap :: (ThreadGroup -> Fork a) -> (Fork a -> IO b) -> IO b
 wrap doFork test = ThreadGroup.new >>= test . doFork
