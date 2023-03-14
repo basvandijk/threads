@@ -52,7 +52,7 @@ source-repository head
   Location: git://github.com/basvandijk/threads.git
 
 custom-setup
-    setup-depends: base >= 4.4 && < 5, Cabal >= 1.12 && < 3.9
+    setup-depends: base >= 4.4 && < 5, Cabal >= 1.12 && < 3.11
 
 -------------------------------------------------------------------------------
 
