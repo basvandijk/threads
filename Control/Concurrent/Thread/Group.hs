@@ -75,7 +75,7 @@ import Control.Concurrent.STM           ( STM, atomically, retry )
 -- from threads:
 import Control.Concurrent.Thread        ( Result )
 import Control.Concurrent.Raw           ( rawForkIO, rawForkOn )
-#ifdef __HADDOCK__
+#ifdef __HADDOCK_VERSION__
 import qualified Control.Concurrent.Thread as Thread ( forkIO
                                                      , forkOS
                                                      , forkOn
