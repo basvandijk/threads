@@ -1,7 +1,7 @@
 name:          threads
 version:       0.5.1.7
 cabal-version: >= 1.9.2
-build-type:    Custom
+build-type:    Simple
 stability:     experimental
 author:        Bas van Dijk <v.dijk.bas@gmail.com>
                Roel van Dijk <vandijk.roel@gmail.com>
@@ -50,9 +50,6 @@ tested-with:
 source-repository head
   Type: git
   Location: git://github.com/basvandijk/threads.git
-
-custom-setup
-    setup-depends: base >= 4.4 && < 5, Cabal >= 1.12 && < 3.11
 
 -------------------------------------------------------------------------------
 
