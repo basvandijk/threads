@@ -1,6 +1,6 @@
 name:          threads
-version:       0.5.1.7
-cabal-version: >= 1.9.2
+version:       0.5.1.8
+cabal-version: 1.20
 build-type:    Simple
 stability:     experimental
 author:        Bas van Dijk <v.dijk.bas@gmail.com>
